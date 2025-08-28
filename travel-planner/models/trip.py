@@ -32,7 +32,7 @@ class TripRequest(BaseModel):
     travelers: int = Field(
         description="The number of people traveling together"
     )
-    travel_style: List[TravelStyle] = Field(
+    travel_styles: List[TravelStyle] = Field(
         description="List of preferred travel styles (adventure, budget, cultural, relaxation)"
     )
     trip_type: TripType = Field(
@@ -41,6 +41,16 @@ class TripRequest(BaseModel):
     interests: List[str] = Field(
         description="List of specific interests or activities the travelers want to experience"
     )
+
+    @property
+    def duration(self) -> int:
+        return (self.end_date - self.start_date).days + 1
+
+    def format_travel_styles(self) -> str:
+        return ", ".join(style.value.title() for style in self.travel_styles)
+
+    def format_interests(self) -> str:
+        return ", ".join(interest.title() for interest in self.interests)
 
 class TripProfile(BaseModel):
     pass
