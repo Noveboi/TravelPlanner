@@ -27,4 +27,4 @@ class DestinationReport(BaseModel):
     events: List[Event] = Field(description="A list of events that take place during the trip")
     additional_places: List[Place] = Field(
         description="A list of additional places to visit. This includes any type of place not covered by the other fields of "
-                    "this class. Examples include: Museums, etc...")
+                    "this class. Examples include: Museums, Malls, Amusement Parks, Specific shops, Parks, etc...")
