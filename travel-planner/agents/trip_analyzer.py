@@ -5,7 +5,7 @@ from langchain_core.language_models import BaseLanguageModel, LanguageModelInput
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.runnables import Runnable
 
-from trip import TripProfile, TripRequest
+from .trip import TripProfile, TripRequest
 
 
 class TripAnalyzerAgent:
