@@ -1,10 +1,12 @@
-from typing import cast
 import logging
+from typing import cast
 
-from langchain_core.runnables import Runnable
 from langchain_core.language_models import BaseLanguageModel, LanguageModelInput
 from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.runnables import Runnable
+
 from trip import TripProfile, TripRequest
+
 
 class TripAnalyzerAgent:
     def __init__(self, llm: BaseLanguageModel) -> None:

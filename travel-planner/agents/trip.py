@@ -4,6 +4,7 @@ from typing import List, Dict
 
 from pydantic import BaseModel, Field
 
+
 class TravelStyle(Enum):
     ADVENTURE = "adventure"
     BUDGET = "budget"
