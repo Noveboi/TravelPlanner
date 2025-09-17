@@ -1,30 +1,16 @@
-import logging
-from typing import cast
-
 from langchain_core.language_models import BaseLanguageModel, LanguageModelInput
 from langchain_core.messages import SystemMessage, HumanMessage
-from langchain_core.runnables import Runnable
 
+from .core import BaseAgent
 from .trip import GeneralTripAnalysis, TripRequest
 
 
-class TripAnalyzerAgent:
+class TripAnalyzerAgent(BaseAgent):
     def __init__(self, llm: BaseLanguageModel) -> None:
-        self._logger = logging.getLogger(name='trip_analyzer')
-
-        self._logger.info('Initializing')
-        structured_llm = llm.with_structured_output(schema=GeneralTripAnalysis)
-
-        # We do a cast here because `with_structured_output` does not return a proper type assignable to the desired.
-        self._llm: Runnable[LanguageModelInput, GeneralTripAnalysis] = cast(
-            Runnable[LanguageModelInput, GeneralTripAnalysis],
-            structured_llm
-        )
-
-        self._logger.info('Initialized')
+        super().__init__('trip_analyzer', llm.with_structured_output(schema=GeneralTripAnalysis))
 
     def invoke(self, request: TripRequest) -> GeneralTripAnalysis:
-        self._logger.info('Invoked')
+        self._logger.info('🚀 Invoked')
         prompt = self._create_analysis_prompt(request)
         return self._llm.invoke(prompt)
 
