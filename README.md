@@ -12,7 +12,7 @@ Below are the agents used in the workflow of the system. Each agent has a single
 
 Generates a profile for the trip such as assessing group dynamics (travelling solo, family, couple, ...) and parsing the travel style/preference of the user  
 
-### Destination Researcher
+### Destination Scout
 
 Responsible for gathering information about a specific destination, including weather patterns, cost indicators, seasonal considerations and more...
 
