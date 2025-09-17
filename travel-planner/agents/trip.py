@@ -54,9 +54,6 @@ class TripRequest(BaseModel):
 
 class TripProfile(BaseModel):
     # Personality and style analysis
-    travel_personality: List[str] = Field(
-        description="Key traits that characterize the traveler's style and preferences"
-    )
     preferred_activities: List[str] = Field(
         description="Recommended activities based on the traveler's interests and style"
     )

@@ -4,7 +4,7 @@ import logging
 from langchain_core.runnables import Runnable
 from langchain_core.language_models import BaseLanguageModel, LanguageModelInput
 from langchain_core.messages import SystemMessage, HumanMessage
-from models.trip import TripProfile, TripRequest
+from trip import TripProfile, TripRequest
 
 class TripAnalyzerAgent:
     def __init__(self, llm: BaseLanguageModel) -> None:
@@ -43,7 +43,16 @@ class TripAnalyzerAgent:
             Provide concise, actionable insights that will help personalize their trip.
                           
             Information about the structured output:
-            - The fields ending with 'score' are numbers in the range from 0 to 1.
+            - The "preferred_activities" field is a list of general activities based on the trip request's data. Examples
+            of preferred activities include: Sightseeing, Museums, Concerts, Leisure, Workshops, Hiking, Luxury Dining, Cozy Dining, etc...
+            - The "group_focus" field is a list of keywords that describe what the group should focus on based on the type of group.
+            For example, a "Couple" group type could focus on Romance and Atmosphere, while a "Family" group type could focus a Fun for all ages and Safety
+            - The "group_recommendations" field is a list of activities/places that the group can do/go to. 
+            - The "time_allocation" field allocates a weight to each activity found you've added in "preferred_activities" and "group_recommendations".
+            The bigger the weight, the more time should be allocated to that activity.
+            - The "key_recommendations" field contains your best/top recommendations to enhance the trip experience.
+            - The "potential_challenges" field contains issues or problems that might arise that the user needs to be made aware of.
+            Potential challenges can be budget limitations or location-specific issues.
             """),
             HumanMessage(content=f"""
             Analyze this trip request:
