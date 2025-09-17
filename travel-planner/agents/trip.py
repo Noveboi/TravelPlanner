@@ -1,6 +1,6 @@
 from datetime import date
 from enum import Enum
-from typing import List, Dict
+from typing import List
 
 from pydantic import BaseModel, Field
 
@@ -11,11 +11,13 @@ class TravelStyle(Enum):
     CULTURAL = "cultural"
     RELAXATION = "relaxation"
 
+
 class TripType(Enum):
     SOLO = "solo"
     COUPLE = "couple"
     FRIENDS = "friends"
     GROUP = "group"
+
 
 class TripRequest(BaseModel):
     destination: str = Field(
@@ -53,6 +55,7 @@ class TripRequest(BaseModel):
     def format_interests(self) -> str:
         return ", ".join(interest.title() for interest in self.interests)
 
+
 class GeneralTripAnalysis(BaseModel):
     group_focus: List[str] = Field(
         description="Keywords that describe what the group should focus on."
@@ -60,8 +63,7 @@ class GeneralTripAnalysis(BaseModel):
     group_recommendations: List[str] = Field(
         description="Specific recommendations for managing group dynamics and ensuring everyone's enjoyment"
     )
-    
-    
+
     # Enhancement recommendations
     key_recommendations: List[str] = Field(
         description="Top recommendations to enhance the trip experience"
