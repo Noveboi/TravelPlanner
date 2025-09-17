@@ -16,6 +16,8 @@ Generates a profile for the trip such as assessing group dynamics (travelling so
 
 Responsible for gathering information about a specific destination, including weather patterns, cost indicators, seasonal considerations and more...
 
+This agent heavily uses external third-party APIs to get up-to-date information on places and the destination in general. 
+
 ### Activity Finder
 
 Discovers and categorizes activities for the trip such as:
@@ -44,11 +46,3 @@ Creates logical day-by-day plans for the whole trip. Tailors the itinerary based
 ## Tools
 
 External APIs and tools are used to gather up-to-date and relevant data and information for the constructinon of the itinerary
-
-### Google Maps
-
-TODO
-
-### Booking.com
-
-TODO
