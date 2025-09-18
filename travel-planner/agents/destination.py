@@ -12,6 +12,12 @@ class Priority(str, Enum):
     NICE_TO_SEE = "Nice to See"
     CAN_SKIP = "Can Skip"
 
+class EstablishmentType(str, Enum):
+    RESTAURANT = "Restaurant"
+    CAFE = "Café"
+    BAR = "Bar"
+    PUB = "Pub"
+
 class Place(BaseModel):
     name: str = Field(
         description="The commonly used name for the place"
@@ -26,11 +32,16 @@ class Place(BaseModel):
         description="A short reason why one should go to this place"
     )
 
+class Establishment(Place):
+    establishment_type: EstablishmentType
 
 class Landmark(Place): pass
 
 class LandmarksReport(BaseModel):
-    LandmarksReport: List[Landmark] = Field(description="A list of the top landmarks for the destination")
+    report: List[Landmark] = Field(description="A list of the top landmarks for the destination")
+    
+class EstablishmentReport(BaseModel):
+    report: List[Establishment] = Field(description="A list for recommended places to go eat or drink.")
 
 class Event(Place):
     date_and_time: datetime = Field(description="The date and time of the event")
