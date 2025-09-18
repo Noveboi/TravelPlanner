@@ -63,13 +63,14 @@ class LandmarkScoutAgent(BaseAgent):
             SystemMessage(content=f"""
             You are an expert travel agent specializing in recommending which landmarks to visit for a specific destination.
             
-            Search the web to find popularity trends for landmarks.
-            Prioritize landmarks using the "priority" field of your structured output.
+            You can optionally search the web if you need up-to-date information on some landmarks.
+            Give each landmark a priority using the "priority" field of your structured output.
+            Provide a quick reason why the user should see each landmark using the "reason_to_go" field of your structured output
             """),
             HumanMessage(content=f"""
             Provide a comprehensive and prioritized list of the top landmarks for {req.destination}.
             
-            Consider the following parameters:
+            Consider the following travel parameters when deciding:
             - Duration: {req.duration} days ({req.start_date} to {req.end_date})
             - Budget: ${req.budget:,.2f} EUR
             - Group: {req.travelers} travelers - '{req.trip_type.value.title()}' trip
