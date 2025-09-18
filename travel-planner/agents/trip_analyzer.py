@@ -16,8 +16,6 @@ class TripAnalyzerAgent(BaseAgent):
 
     @staticmethod
     def _create_analysis_prompt(req: TripRequest) -> LanguageModelInput:
-        duration = req.duration
-
         return [
             SystemMessage(content="""
             You are a travel psychology expert. Analyze the user's trip request and provide insights about:
@@ -39,7 +37,7 @@ class TripAnalyzerAgent(BaseAgent):
             HumanMessage(content=f"""
             Analyze this trip request:
             - Destination: {req.destination}
-            - Duration: {duration} days ({req.start_date} to {req.end_date})
+            - Duration: {req.duration} days ({req.start_date} to {req.end_date})
             - Budget: ${req.budget:,.2f} EUR
             - Group: {req.travelers} travelers - '{req.trip_type.value.title()}' trip
             - Travel Style(s): {req.format_travel_styles()}
