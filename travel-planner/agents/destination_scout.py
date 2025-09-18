@@ -1,13 +1,14 @@
-﻿from langchain_core.language_models import BaseLanguageModel
+﻿from langchain_core.language_models import BaseLanguageModel, LanguageModelInput
+from langchain_core.messages import SystemMessage, HumanMessage
 
-from core import BaseAgent
-from destination import DestinationReport, Event, Place, Landmark
-from trip import TripRequest
+from .core import BaseAgent
+from .destination import DestinationReport, Event, Place, Landmark, LandmarksReport
+from .trip import TripRequest
 
 
 class DestinationScoutAgent(BaseAgent):
     def __init__(self, llm: BaseLanguageModel) -> None:
-        super().__init__('destination_scout', llm.with_structured_output(schema=DestinationReport))
+        super().__init__('destination_scout', llm)
 
     def invoke(self, request: TripRequest) -> DestinationReport:
         self._logger.info('🚀 Invoked')
@@ -43,3 +44,36 @@ class DestinationScoutAgent(BaseAgent):
         """Find additional places such as museums, parks and shops"""
         self._logger.info('🔎 Researching additional places to go..')
         pass
+
+
+class LandmarkScoutAgent(BaseAgent):
+    def __init__(self, llm: BaseLanguageModel):
+        super().__init__('landmark_scout', llm.with_structured_output(schema=LandmarksReport))
+
+    def invoke(self, request: TripRequest) -> LandmarksReport:
+        """ Find landmarks for the destination"""
+        self._logger.info('🔎 Researching landmarks...')
+
+        prompt = self._create_prompt(request)
+        return self._llm.invoke(prompt)
+
+    @staticmethod
+    def _create_prompt(req: TripRequest) -> LanguageModelInput:
+        return [
+            SystemMessage(content=f"""
+            You are an expert travel agent specializing in recommending which landmarks to visit for a specific destination.
+            
+            Search the web to find popularity trends for landmarks.
+            Prioritize landmarks using the "priority" field of your structured output.
+            """),
+            HumanMessage(content=f"""
+            Provide a comprehensive and prioritized list of the top landmarks for {req.destination}.
+            
+            Consider the following parameters:
+            - Duration: {req.duration} days ({req.start_date} to {req.end_date})
+            - Budget: ${req.budget:,.2f} EUR
+            - Group: {req.travelers} travelers - '{req.trip_type.value.title()}' trip
+            - Travel Style(s): {req.format_travel_styles()}
+            - Interests: {req.format_interests()}
+            """)
+        ]
