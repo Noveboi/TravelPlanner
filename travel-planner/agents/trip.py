@@ -54,6 +54,15 @@ class TripRequest(BaseModel):
 
     def format_interests(self) -> str:
         return ", ".join(interest.title() for interest in self.interests)
+    
+    def format_for_llm(self) -> str:
+        return f"""
+        - Duration: {self.duration} days ({self.start_date} to {self.end_date})
+        - Budget: ${self.budget:,.2f} EUR
+        - Group: {self.travelers} travelers - '{self.trip_type.value.title()}' trip
+        - Travel Style(s): {self.format_travel_styles()}
+        - Interests: {self.format_interests()}
+        """
 
 
 class GeneralTripAnalysis(BaseModel):

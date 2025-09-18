@@ -36,12 +36,7 @@ class TripAnalyzerAgent(BaseAgent):
             """),
             HumanMessage(content=f"""
             Analyze this trip request:
-            - Destination: {req.destination}
-            - Duration: {req.duration} days ({req.start_date} to {req.end_date})
-            - Budget: ${req.budget:,.2f} EUR
-            - Group: {req.travelers} travelers - '{req.trip_type.value.title()}' trip
-            - Travel Style(s): {req.format_travel_styles()}
-            - Interests: {req.format_interests()}
+            {req.format_for_llm()}
             
             Please provide a comprehensive analysis based on the above criteria.
             """)]
