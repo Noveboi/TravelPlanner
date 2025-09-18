@@ -2,6 +2,7 @@
 pydantic
 langchain-core
 langchain-ollama
+langchain-tavily
 
 # Type checking
 mypy
