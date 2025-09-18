@@ -2,7 +2,7 @@
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from .core import BaseAgent
-from .destination import DestinationReport, Event, Place, Landmark, LandmarksReport
+from .destination import DestinationReport, Event, Place, Landmark, LandmarksReport, EstablishmentReport
 from .trip import TripRequest
 
 
@@ -45,6 +45,33 @@ class DestinationScoutAgent(BaseAgent):
         self._logger.info('🔎 Researching additional places to go..')
         pass
 
+class EstablishmentScoutAgent(BaseAgent):
+    def __init__(self, llm: BaseLanguageModel):
+        super().__init__('establishment_scout', llm.with_structured_output(schema=EstablishmentReport))
+        
+    def invoke(self, request: TripRequest) -> EstablishmentReport:
+        """Find places to go eat, drink and relax"""
+        self._logger.info("🔎 Researching establishments...")
+        
+        prompt = self._create_prompt(request)
+        return self._llm.invoke(prompt)
+    
+    @staticmethod
+    def _create_prompt(req: TripRequest) -> LanguageModelInput:
+        return [
+            SystemMessage(content=f"""
+            You are an expert travel agent and local {req.destination} guide. 
+            Your speciality is establishments - restaurants, cafes, bars, any places where people can eat or drink.
+            
+            """,),
+            HumanMessage(content=f"""
+            Generate a comprehensive and prioritized list of establishments based in {req.destination}.
+            Search the web to find and curate establishments based on recent information.
+            
+            Consider the following travel parameters when curating establishments:
+            {req.format_for_llm()}
+            """)
+        ]
 
 class LandmarkScoutAgent(BaseAgent):
     def __init__(self, llm: BaseLanguageModel):
@@ -71,10 +98,6 @@ class LandmarkScoutAgent(BaseAgent):
             Provide a comprehensive and prioritized list of the top landmarks for {req.destination}.
             
             Consider the following travel parameters when deciding:
-            - Duration: {req.duration} days ({req.start_date} to {req.end_date})
-            - Budget: ${req.budget:,.2f} EUR
-            - Group: {req.travelers} travelers - '{req.trip_type.value.title()}' trip
-            - Travel Style(s): {req.format_travel_styles()}
-            - Interests: {req.format_interests()}
+            {req.format_for_llm()}
             """)
         ]
