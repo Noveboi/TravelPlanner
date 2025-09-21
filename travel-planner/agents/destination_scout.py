@@ -2,62 +2,59 @@
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from .core import BaseAgent
-from .destination import DestinationReport, Event, Place, Landmark, LandmarksReport, EstablishmentReport
+from .destination import DestinationReport, Event, Place, Landmark, LandmarksReport, EstablishmentReport, EventsReport, \
+    PlacesReport
 from .trip import TripRequest
 
-
-class DestinationScoutAgent(BaseAgent):
-    def __init__(self, llm: BaseLanguageModel) -> None:
-        super().__init__('destination_scout', llm)
-
-    def invoke(self, request: TripRequest) -> DestinationReport:
-        self._logger.info('🚀 Invoked')
-
-        landmarks = self._research_landmarks(request)
-        food_highlights = self._research_food_highlights(request)
-        events = self._research_events(request)
-        additional_places = self._research_additional_places(request)
-
-        return DestinationReport(
-            landmarks=landmarks,
-            food_highlights=food_highlights,
-            events=events,
-            additional_places=additional_places
-        )
-
-    def _research_landmarks(self, request: TripRequest) -> list[Landmark]:
-        """ Find landmarks for the destination"""
-        self._logger.info('🔎 Researching landmarks..')
-        pass
-
-    def _research_food_highlights(self, request: TripRequest) -> list[Place]:
-        """Find places to eat"""
-        self._logger.info('🔎 Researching places to eat..')
-        pass
-
-    def _research_events(self, request: TripRequest) -> list[Event]:
-        """Find events within the trip dates, return a list of each event's name and pricing"""
-        self._logger.info('🔎 Researching events for the trip dates..')
-        pass
-
-    def _research_additional_places(self, request: TripRequest) -> list[Place]:
-        """Find additional places such as museums, parks and shops"""
-        self._logger.info('🔎 Researching additional places to go..')
-        pass
+class GeneralPlacesScoutAgent(BaseAgent):
+    def __init__(self, llm: BaseLanguageModel):
+        super().__init__('places_scout', llm.with_structured_output(schema=PlacesReport))
+    
+    def invoke(self, request: TripRequest) -> PlacesReport:
+        self._logger.info()
 
 class EstablishmentScoutAgent(BaseAgent):
     def __init__(self, llm: BaseLanguageModel):
-        super().__init__('establishment_scout', llm.with_structured_output(schema=EstablishmentReport))
+        super().__init__('establishment_scout', llm)
+        self._structured_llm = llm.with_structured_output(schema=EstablishmentReport)
         
     def invoke(self, request: TripRequest) -> EstablishmentReport:
-        """Find places to go eat, drink and relax"""
         self._logger.info("🔎 Researching establishments...")
         
-        prompt = self._create_prompt(request)
-        return self._llm.invoke(prompt)
+        self._logger.info("Searching online...")
+        search_prompt = self._create_search_prompt(request)
+        search_results = self._llm.invoke(search_prompt)
+        
+        self._logger.info('Compiling search results into comprehensive list...')
+        prompt = self._create_structured_prompt(request, search_results)
+        return self._structured_llm.invoke(prompt)
     
     @staticmethod
-    def _create_prompt(req: TripRequest) -> LanguageModelInput:
+    def _create_search_prompt(req: TripRequest) -> LanguageModelInput:
+        return [
+            SystemMessage(content=f"""
+            You are a local guide in {req.destination} that specializes in finding information about establishments such
+            as restaurants, cafes, bars, pubs, etc...
+            
+            Use the available search tools to find current information about establishment happening in {req.destination}.
+                         
+            If the traveler's request shows any preferences for specific types of establishments, then tailor your search
+            to those preferences.
+            """),
+            
+            HumanMessage(content=f"""
+            Search for establishments in {req.destination}
+            
+            Focus on establishments that would appeal to these travelers:
+            {req.format_for_llm()}
+            
+            If the traveller's request doesn't provide much information, then search for generally popular establishments.
+            Establishments include restaurants, cafes, bars, pubs among others...
+            """)
+        ]
+    
+    @staticmethod
+    def _create_structured_prompt(req: TripRequest, search_results: str) -> LanguageModelInput:
         return [
             SystemMessage(content=f"""
             You are an expert travel agent and local {req.destination} guide. 
@@ -68,17 +65,72 @@ class EstablishmentScoutAgent(BaseAgent):
             Generate a comprehensive and prioritized list of establishments based in {req.destination}.
             Search the web to find and curate establishments based on recent information.
             
+            
             Consider the following travel parameters when curating establishments:
             {req.format_for_llm()}
             """)
         ]
 
+class EventScoutAgent(BaseAgent):
+    def __init__(self, llm: BaseLanguageModel):
+        super().__init__('event_scout', llm)
+        self._structured_llm = llm.with_structured_output(schema=EventsReport)
+
+    def invoke(self, request: TripRequest) -> EventsReport:
+        self._logger.info('🔎 Researching events at the time of the trip...')
+
+        search_prompt = self._create_search_prompt(request)
+        search_result = self._llm.invoke(search_prompt)
+
+        structure_prompt = self._create_structure_prompt(request, search_result.content)
+        return self._structured_llm.invoke(structure_prompt)
+
+    @staticmethod
+    def _create_search_prompt(req: TripRequest) -> LanguageModelInput:
+        return [
+            SystemMessage(content=f"""
+            You are a local guide in {req.destination} that specializes in finding information about events.
+            
+            Use the available search tools to find current information about events happening in {req.destination} 
+            between {req.start_date} and {req.end_date}.
+            
+            Search for events that match the travelers' interests and preferences.
+            """),
+            HumanMessage(content=f"""
+            Search for events taking place between {req.start_date} and {req.end_date} in {req.destination}.
+            
+            Focus on events that would appeal to these travelers:
+            {req.format_for_llm()}
+            
+            Events include festivals, social, cultural & arts, sports, recreation, concerts, theatre, cinema, and more...
+            Please search for multiple types of events and provide comprehensive information.
+            """)
+        ]
+
+    @staticmethod
+    def _create_structure_prompt(req: TripRequest, search_results: str) -> LanguageModelInput:
+        return [
+            SystemMessage(content=f"""
+            You are organizing event information for travelers visiting {req.destination}.
+            Based on the search results provided, create a comprehensive and prioritized list of events.
+            """),
+            HumanMessage(content=f"""
+            Based on these search results about events in {req.destination}:
+
+            {search_results}
+
+            Create a prioritized list of events for these travelers:
+            {req.format_for_llm()}
+
+            Focus on events happening between {req.start_date} and {req.end_date}.
+            """)
+        ]
+    
 class LandmarkScoutAgent(BaseAgent):
     def __init__(self, llm: BaseLanguageModel):
         super().__init__('landmark_scout', llm.with_structured_output(schema=LandmarksReport))
 
     def invoke(self, request: TripRequest) -> LandmarksReport:
-        """ Find landmarks for the destination"""
         self._logger.info('🔎 Researching landmarks...')
 
         prompt = self._create_prompt(request)
