@@ -2,18 +2,8 @@
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from .core import BaseAgent
-from .destination import DestinationReport, Event, Place, Landmark, LandmarksReport, EstablishmentReport, EventsReport, \
-    PlacesReport
+from .destination import LandmarksReport, EstablishmentReport, EventsReport
 from .trip import TripRequest
-
-
-class GeneralPlacesScoutAgent(BaseAgent):
-    def __init__(self, llm: BaseLanguageModel):
-        super().__init__('places_scout', llm.with_structured_output(schema=PlacesReport))
-
-    def invoke(self, request: TripRequest) -> PlacesReport:
-        self._logger.info()
-
 
 class EstablishmentScoutAgent(BaseAgent):
     def __init__(self, llm: BaseLanguageModel):

@@ -48,13 +48,7 @@ class LandmarksReport(BaseModel):
 class EstablishmentReport(BaseModel):
     report: List[Establishment] = Field(description="A list for recommended places to go eat or drink.")
 
-class PlacesReport(BaseModel):
-    report: List[Place] = Field(description="A list of general purpose places to go.")
-
-class DestinationReport(BaseModel):
-    landmarks: List[Landmark] = Field(description="A list of the top landmarks for the destination")
-    food_highlights: List[Place] = Field(description="A list for recommended places to go eat")
-    events: List[Event] = Field(description="A list of events that take place during the trip")
-    additional_places: List[Place] = Field(
-        description="A list of additional places to visit. This includes any type of place not covered by the other fields of "
-                    "this class. Examples include: Museums, Malls, Amusement Parks, Specific shops, Parks, etc...")
+class DestinationReport:
+    landmarks: LandmarksReport
+    establishments: EstablishmentReport
+    events: EventsReport
