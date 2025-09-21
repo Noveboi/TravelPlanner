@@ -6,6 +6,9 @@ from .destination import LandmarksReport, EstablishmentReport, EventsReport
 from .trip import TripRequest
 
 class EstablishmentScoutAgent(BaseAgent):
+    """
+    Researches information about restaurants, cafes, bars and more...
+    """
     def __init__(self, llm: BaseLanguageModel):
         super().__init__('establishment_scout', llm)
         self._structured_llm = llm.with_structured_output(schema=EstablishmentReport)
@@ -65,6 +68,9 @@ class EstablishmentScoutAgent(BaseAgent):
 
 
 class EventScoutAgent(BaseAgent):
+    """
+    Researches information on events (such as concerts and festivals) taking place during the duration of the user's stay. 
+    """
     def __init__(self, llm: BaseLanguageModel):
         super().__init__('event_scout', llm)
         self._structured_llm = llm.with_structured_output(schema=EventsReport)
@@ -121,6 +127,9 @@ class EventScoutAgent(BaseAgent):
 
 
 class LandmarkScoutAgent(BaseAgent):
+    """
+    Researches landmarks for the user's destination.
+    """
     def __init__(self, llm: BaseLanguageModel):
         super().__init__('landmark_scout', llm.with_structured_output(schema=LandmarksReport))
 
