@@ -6,29 +6,31 @@ from .destination import DestinationReport, Event, Place, Landmark, LandmarksRep
     PlacesReport
 from .trip import TripRequest
 
+
 class GeneralPlacesScoutAgent(BaseAgent):
     def __init__(self, llm: BaseLanguageModel):
         super().__init__('places_scout', llm.with_structured_output(schema=PlacesReport))
-    
+
     def invoke(self, request: TripRequest) -> PlacesReport:
         self._logger.info()
+
 
 class EstablishmentScoutAgent(BaseAgent):
     def __init__(self, llm: BaseLanguageModel):
         super().__init__('establishment_scout', llm)
         self._structured_llm = llm.with_structured_output(schema=EstablishmentReport)
-        
+
     def invoke(self, request: TripRequest) -> EstablishmentReport:
         self._logger.info("🔎 Researching establishments...")
-        
+
         self._logger.info("Searching online...")
         search_prompt = self._create_search_prompt(request)
         search_results = self._llm.invoke(search_prompt)
-        
+
         self._logger.info('Compiling search results into comprehensive list...')
         prompt = self._create_structured_prompt(request, search_results)
         return self._structured_llm.invoke(prompt)
-    
+
     @staticmethod
     def _create_search_prompt(req: TripRequest) -> LanguageModelInput:
         return [
@@ -41,7 +43,7 @@ class EstablishmentScoutAgent(BaseAgent):
             If the traveler's request shows any preferences for specific types of establishments, then tailor your search
             to those preferences.
             """),
-            
+
             HumanMessage(content=f"""
             Search for establishments in {req.destination}
             
@@ -52,7 +54,7 @@ class EstablishmentScoutAgent(BaseAgent):
             Establishments include restaurants, cafes, bars, pubs among others...
             """)
         ]
-    
+
     @staticmethod
     def _create_structured_prompt(req: TripRequest, search_results: str) -> LanguageModelInput:
         return [
@@ -60,7 +62,7 @@ class EstablishmentScoutAgent(BaseAgent):
             You are an expert travel agent and local {req.destination} guide. 
             Your speciality is establishments - restaurants, cafes, bars, any places where people can eat or drink.
             
-            """,),
+            """, ),
             HumanMessage(content=f"""
             Generate a comprehensive and prioritized list of establishments based in {req.destination}.
             Search the web to find and curate establishments based on recent information.
@@ -70,6 +72,7 @@ class EstablishmentScoutAgent(BaseAgent):
             {req.format_for_llm()}
             """)
         ]
+
 
 class EventScoutAgent(BaseAgent):
     def __init__(self, llm: BaseLanguageModel):
@@ -125,7 +128,8 @@ class EventScoutAgent(BaseAgent):
             Focus on events happening between {req.start_date} and {req.end_date}.
             """)
         ]
-    
+
+
 class LandmarkScoutAgent(BaseAgent):
     def __init__(self, llm: BaseLanguageModel):
         super().__init__('landmark_scout', llm.with_structured_output(schema=LandmarksReport))
