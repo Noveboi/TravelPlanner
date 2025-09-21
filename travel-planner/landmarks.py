@@ -6,4 +6,4 @@ if __name__ == '__main__':
     agent = LandmarkScoutAgent(llm_with_tools)
     report = agent.invoke(example_request)
 
-    print(json.dumps(report.model_dump(), indent=2))
+    print(report.model_dump_json(), indent=2)
