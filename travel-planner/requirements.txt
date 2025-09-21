@@ -1,7 +1,7 @@
 # Core dependencies
 pydantic
 langchain-core
-langchain-ollama
+langchain-openai
 langchain-tavily
 
 # Type checking
