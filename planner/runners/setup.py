@@ -4,8 +4,8 @@ from datetime import date
 
 from langchain_openai import ChatOpenAI
 
-from agents.trip import TravelStyle, TripType, TripRequest
-from tools.tools import bind_necessary_tools
+from planner.models.trip import TripType, TripRequest
+from planner.tools.tools import bind_necessary_tools
 
 log = logging.getLogger('main')
 logging.basicConfig(level=logging.INFO)
@@ -22,12 +22,11 @@ llm_with_tools = bind_necessary_tools(llm)
 log.info('Got LLM model')
 
 example_request = TripRequest(
-    destination='London',
+    destination='Athens',
     start_date=date(2025, 12, 10),
     end_date=date(2025, 12, 31),
     budget=10000,
     travelers=2,
-    travel_styles=[TravelStyle.CULTURAL],
     trip_type=TripType.COUPLE,
     interests=['Sightseeing', 'Local cuisine', 'Music of any type']
 )

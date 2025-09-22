@@ -1,10 +1,16 @@
-﻿from datetime import datetime
-from typing import List, Optional
+﻿import uuid
+from datetime import datetime
+from typing import List, Optional, Dict
 from enum import Enum
 
 from pydantic import BaseModel, Field
 
-from .coordinates import Coordinates
+from .geography import Coordinates
+
+class BookingType(str, Enum):
+    REQUIRED = "Required"
+    RECOMMENDED = "Recommended"
+    NONE = "None"
 
 class Priority(str, Enum):
     MUST_SEE = "Must See"
@@ -13,6 +19,7 @@ class Priority(str, Enum):
     CAN_SKIP = "Can Skip"
 
 class Place(BaseModel):
+    id: uuid.UUID = uuid.uuid4()
     name: str = Field(
         description="The commonly used name for the place"
     )
@@ -25,7 +32,30 @@ class Place(BaseModel):
     reason_to_go: str = Field(
         description="A short reason why one should go to this place"
     )
-    website: Optional[str] = Field(description="The website for the place. If there is one.")
+    website: Optional[str] = Field(
+        description="The website for the place. If there is one."
+    ),
+    booking_type: BookingType = Field(
+        description="Whether the place requires booking (REQUIRED), does not require booking but is typically recommended"
+                    "(RECOMMENDED), or does not having any booking at all (NONE)"
+    ),
+    typical_hours_of_stay: float = Field(
+        description="The amount of time people typically spend in this place. In hours",
+        gt=0,
+        lt=24
+    ),
+    weather_dependent: bool = Field(
+        description="Whether the experience in this place depends on the weather"
+    ),
+    opening_schedule: Dict[str, str] = Field(
+        description="The opening hours for the place. All hours should be in the destination's local time.",
+        examples=[
+            {"Daily", "09:00-15:00"},
+            {"Weekends", "08:00-20:00"},
+            {"Thursday", "15:00-20:00"}
+        ]
+    )
+    
 
 class Establishment(Place):
     establishment_type: str = Field(

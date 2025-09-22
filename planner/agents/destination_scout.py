@@ -1,13 +1,13 @@
 ﻿from langchain_core.language_models import BaseLanguageModel, LanguageModelInput
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from .core import BaseAgent
-from .destination import LandmarksReport, EstablishmentReport, EventsReport
-from .trip import TripRequest
+from .base import BaseAgent
+from planner.models.places import LandmarksReport, EstablishmentReport, EventsReport
+from planner.models.trip import TripRequest
 
 class EstablishmentScoutAgent(BaseAgent):
     """
-    Researches information about restaurants, cafes, bars and more...
+    Researches information about restaurants, cafés, bars and more...
     """
     def __init__(self, llm: BaseLanguageModel):
         super().__init__('establishment_scout', llm)

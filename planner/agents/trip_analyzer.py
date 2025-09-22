@@ -1,8 +1,8 @@
 from langchain_core.language_models import BaseLanguageModel, LanguageModelInput
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from .core import BaseAgent
-from .trip import GeneralTripAnalysis, TripRequest
+from .base import BaseAgent
+from planner.models.trip import GeneralTripAnalysis, TripRequest
 
 
 class TripAnalyzerAgent(BaseAgent):
