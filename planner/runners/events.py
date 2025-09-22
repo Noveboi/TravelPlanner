@@ -1,4 +1,4 @@
-﻿from planner.agents.destination_scout import EventScoutAgent
+﻿from planner.agents.places.event_scout import EventScoutAgent
 from planner.setup import llm_with_tools, example_request
 
 if __name__ == '__main__':

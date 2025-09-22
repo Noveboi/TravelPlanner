@@ -1,4 +1,4 @@
-﻿from planner.agents.destination_scout import LandmarkScoutAgent
+﻿from planner.agents.places.landmark_scout import LandmarkScoutAgent
 from planner.setup import llm_with_tools, example_request
 
 if __name__ == '__main__':
