@@ -5,13 +5,14 @@ from datetime import date
 from langchain_openai import ChatOpenAI
 
 from planner.models.trip import TripType, TripRequest
+from planner.runners.utils import prompt_user_for_key
 from planner.tools.tools import bind_necessary_tools
 
 log = logging.getLogger('main')
 logging.basicConfig(level=logging.INFO)
 
-os.environ['TAVILY_API_KEY'] = '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'
-os.environ['OPENAI_API_KEY'] = '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'
+prompt_user_for_key('TAVILY_API_KEY')
+prompt_user_for_key('OPENAI_API_KEY')
 
 log.info('Starting')
 llm = ChatOpenAI(
