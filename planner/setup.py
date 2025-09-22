@@ -1,18 +1,16 @@
 ﻿import logging
-import os
 from datetime import date
 
+from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 
 from planner.models.trip import TripType, TripRequest
-from planner.runners.utils import prompt_user_for_key
 from planner.tools.tools import bind_necessary_tools
 
 log = logging.getLogger('main')
 logging.basicConfig(level=logging.INFO)
 
-prompt_user_for_key('TAVILY_API_KEY')
-prompt_user_for_key('OPENAI_API_KEY')
+load_dotenv()
 
 log.info('Starting')
 llm = ChatOpenAI(
