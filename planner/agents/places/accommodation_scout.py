@@ -7,10 +7,9 @@ from pydantic import BaseModel, Field
 
 from planner.agents.base import BaseAgent
 from planner.models.geography import Coordinates
-from planner.models.places import PlaceSearchRequest, Place, Priority, BookingType, \
-    PlaceCategory, AccommodationReport
+from planner.models.places import Place, Priority, BookingType, PlaceCategory, AccommodationReport
 from planner.models.trip import TripRequest
-from planner.tools.foursquare import FoursquareApiClient, FoursquarePlace
+from planner.tools.foursquare import FoursquareApiClient, FoursquarePlace, PlaceSearchRequest
 from planner.tools.tools import get_available_tools
 
 

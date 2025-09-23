@@ -22,6 +22,9 @@ class Priority(str, Enum):
     CAN_SKIP = "Can Skip"
 
 class Place(BaseModel):
+    """
+    The fundamental model for any type of place.
+    """
     id: uuid.UUID = uuid.uuid4()
     name: str = Field(
         description="The commonly used name for the place"
@@ -65,18 +68,31 @@ class Place(BaseModel):
     
 
 class Establishment(Place):
+    """
+    Describes a place that is an establishment, like a restaurant or a café.
+    """
     establishment_type: str = Field(
         description="The type of the establishment",
         examples=['Restaurant', 'Cafe', 'Bar', 'Pub', 'Tavern', 'Canteen']
     )
 
-class Landmark(Place): pass
+class Landmark(Place): 
+    """
+    Describes a place that is a landmark, like a historical monument or a statue.  
+    """
+    pass
 
 class Event(Place):
+    """
+    Describes a place that an event takes place at a given date and time.
+    """
     date_and_time: datetime = Field(description="The date and time of the event")
     price_options: List[float] = Field(description="A list of available prices, in EUR")
 
 class Accommodation(Place):
+    """
+    Describes a place that is an accommodation, like a hotel or a bnb. 
+    """
     price_options: List[float] = Field(description="A list of available prices, in EUR")
 
 class EventsReport(BaseModel):
@@ -92,24 +108,10 @@ class AccommodationReport(BaseModel):
     report: List[Accommodation] = Field(description='A list of recommended accommodations in the area.')
 
 class DestinationReport:
+    """
+    The full report for the destination, containing all the crucial places for the trip.
+    """
     landmarks: LandmarksReport
     establishments: EstablishmentReport
     events: EventsReport
-    
-class PlaceSearchRequest(BaseModel):
-    center: Coordinates = Field(description='The latitude/longitude around which to retrieve place information.')
-    radius: int = Field(
-        description='Radius distance (in meters) used to define an area to bias search results.',
-        gt=0,
-        lt=100_000,
-        default=22_000
-    )
-    place_categories: List[PlaceCategory] = Field(
-        description='Filter the response and return places matching the specified categories.',
-        default=[]
-    )
-    limit: int = Field(
-        description="Limit the number of results",
-        gt=0,
-        le=50
-    )
+    accommodations: AccommodationReport
