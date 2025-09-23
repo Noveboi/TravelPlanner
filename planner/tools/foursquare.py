@@ -28,8 +28,6 @@ class FoursquarePlace(BaseModel):
     longitude: float = Field()
     name: str = Field()
     website: Optional[str] = Field(default=None)
-    hours: FoursquareHours = Field()
-    description: str
 
 class FoursquarePlaceSearchRequest:
     def __init__(self, center: str, radius: int, fsq_category_ids: str):
@@ -68,7 +66,7 @@ class FoursquareApiClient:
             'radius': fsq.radius,
             'exclude_all_chains': True,
             'limit': 10,
-            'fields': 'fsq_place_id,latitude,longitude,name,website,description,hours'
+            # 'fields': 'fsq_place_id,latitude,longitude,name,website,description,hours'
         }
         
         if len(fsq.fsq_category_ids) > 0:
