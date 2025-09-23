@@ -1,5 +1,5 @@
 ﻿import logging
-from typing import TypeVar
+from typing import TypeVar, Optional
 
 from langchain_core.language_models import LanguageModelInput
 from langchain_core.runnables import Runnable
@@ -10,13 +10,15 @@ T = TypeVar('T', bound=BaseModel)
 
 
 class BaseAgent:
-    def __init__(self, name: str, llm: Runnable[LanguageModelInput, T]) -> None:
+    def __init__(self, name: str, llm: Optional[Runnable[LanguageModelInput, T]] = None) -> None:
         self._logger = logging.getLogger(name=name)
-        self._llm = llm.with_listeners(
-            on_start=self._start_listener,
-            on_end=self._end_listener,
-            on_error=self._error_listener
-        )
+        
+        if llm is not None:
+            self._llm = llm.with_listeners(
+                on_start=self._start_listener,
+                on_end=self._end_listener,
+                on_error=self._error_listener
+            )
         
         self._logger.info('✅ Initialized')
         

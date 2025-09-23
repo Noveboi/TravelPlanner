@@ -3,7 +3,6 @@ import os
 from typing import Optional
 
 import requests
-from mypy.nodes import set_flags
 from pydantic import BaseModel, Field
 
 from planner.models.places import PlaceSearchRequest, PlaceCategory, Place
@@ -42,7 +41,7 @@ class FoursquareApiClient:
     def __init__(self):
         self._logger = logging.getLogger(name='fsq')
         self._base_url = 'https://places-api.foursquare.com/places'
-        self._bearer_token = os.environ.get('FOURSQUARE_BEARER_TOKEN')
+        self._bearer_token = os.environ.get('FOURSQUARE_API_KEY')
         
         if self._bearer_token is None:
             self._logger.warning('Foursquare API bearer token not found. Requests will not be sent.')
@@ -65,7 +64,7 @@ class FoursquareApiClient:
             'll': fsq.center,
             'radius': fsq.radius,
             'exclude_all_chains': True,
-            'limit': 10,
+            'limit': request.limit,
             # 'fields': 'fsq_place_id,latitude,longitude,name,website,description,hours'
         }
         

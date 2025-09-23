@@ -1,5 +1,6 @@
 # Core dependencies
 pydantic
+langgraph
 langchain-core
 langchain-openai
 langchain-tavily

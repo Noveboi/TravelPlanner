@@ -45,19 +45,22 @@ class Place(BaseModel):
     )
     typical_hours_of_stay: float = Field(
         description="The amount of time people typically spend in this place. In hours",
-        gt=0,
+        ge=0,
         lt=24
     )
     weather_dependent: bool = Field(
         description="Whether the experience in this place depends on the weather"
     )
     opening_schedule: Dict[str, str] = Field(
-        description="The opening hours for the place. All hours should be in the destination's local time.",
+        description="The opening hours for the place. All hours should be in the destination's local time. If an empty "
+                    "dictionary is provided, it will be interpreted as 'open 24/7'.",
         examples=[
             {"Daily", "09:00-15:00"},
             {"Weekends", "08:00-20:00"},
-            {"Thursday", "15:00-20:00"}
-        ]
+            {"Thursday", "15:00-20:00"},
+            {}
+        ],
+        default={}
     )
     
 
@@ -73,6 +76,9 @@ class Event(Place):
     date_and_time: datetime = Field(description="The date and time of the event")
     price_options: List[float] = Field(description="A list of available prices, in EUR")
 
+class Accommodation(Place):
+    price_options: List[float] = Field(description="A list of available prices, in EUR")
+
 class EventsReport(BaseModel):
     report: List[Event] = Field(description="A list of notable events taking place at the time of the trip.")
 
@@ -81,6 +87,9 @@ class LandmarksReport(BaseModel):
     
 class EstablishmentReport(BaseModel):
     report: List[Establishment] = Field(description="A list for recommended places to go eat or drink.")
+    
+class AccommodationReport(BaseModel):
+    report: List[Accommodation] = Field(description='A list of recommended accommodations in the area.')
 
 class DestinationReport:
     landmarks: LandmarksReport
@@ -98,4 +107,9 @@ class PlaceSearchRequest(BaseModel):
     place_categories: List[PlaceCategory] = Field(
         description='Filter the response and return places matching the specified categories.',
         default=[]
+    )
+    limit: int = Field(
+        description="Limit the number of results",
+        gt=0,
+        le=50
     )
