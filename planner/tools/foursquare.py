@@ -37,6 +37,9 @@ class FoursquarePlaceSearchResponse(BaseModel):
     results: list[FoursquarePlace] = Field()
     
 class FoursquareApiClient:
+    """
+    Interfaces with the Foursquare "Places API" to search and retrieve relevant places for a given location.
+    """
     def __init__(self):
         self._logger = logging.getLogger(name='fsq')
         self._base_url = 'https://places-api.foursquare.com/places'
@@ -46,6 +49,12 @@ class FoursquareApiClient:
             self._logger.warning('Foursquare API bearer token not found. Requests will not be sent.')
 
     def invoke(self, request: PlaceSearchRequest) -> FoursquarePlaceSearchResponse | None:
+        """
+        Calls the Foursquare "Places API" to retrieve up to date and relevant place information based on the given request. 
+        
+        :param request: Configures the API request 
+        :return: A strongly typed response that contains basic place information
+        """
         if self._bearer_token is None:
             return None
         
@@ -73,6 +82,7 @@ class FoursquareApiClient:
         self._logger.info('Sending request to Foursquare')
         response = requests.get(self._base_url + '/search', params=params, headers=headers)
         self._logger.info('Received response from Foursquare')
+        
         response.raise_for_status()
         
         return FoursquarePlaceSearchResponse.model_validate(response.json())
