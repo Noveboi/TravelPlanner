@@ -10,7 +10,6 @@ from planner.models.places import PlaceSearchRequest, PlaceCategory, Place
 foursquare_category_map: dict[PlaceCategory, str] = {
     PlaceCategory.HOTEL: '4bf58dd8d48988d1fa931735'
 }
-
     
 class FoursquareDayHours(BaseModel):
     close: str = Field()
