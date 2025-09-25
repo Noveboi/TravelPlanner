@@ -1,7 +1,8 @@
 ﻿from typing import List
 
-from planner.models.places import Accommodation, Priority, BookingType
+from planner.models.places import Accommodation, Priority
 from planner.models.trip import TripRequest
+
 
 def select_best_accommodation(accommodations: List[Accommodation], trip_request: TripRequest) -> Accommodation:
     """Select the best accommodation based on criteria"""

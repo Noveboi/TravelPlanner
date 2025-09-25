@@ -12,6 +12,7 @@ from planner.models.itinerary import DayItinerary, ActivityType, ItineraryActivi
 from planner.models.places import Place, Establishment, Priority, Landmark, Event
 from planner.models.trip import TripRequest
 
+
 class TravelSegmentOptions(NamedTuple):
     average_public_transport_fare: float = 2.5
     base_taxi_fare: float = 1.5

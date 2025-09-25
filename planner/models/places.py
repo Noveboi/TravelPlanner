@@ -1,11 +1,12 @@
 ﻿import uuid
 from datetime import datetime
-from typing import List, Optional, Dict
 from enum import Enum
+from typing import List, Optional, Dict
 
 from pydantic import BaseModel, Field
 
 from .geography import Coordinates
+
 
 class PlaceCategory(str, Enum):
     HOTEL = "Hotel"
