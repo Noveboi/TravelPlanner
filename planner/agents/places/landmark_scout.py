@@ -12,7 +12,8 @@ class LandmarkScoutAgent(BaseAgent):
     """
 
     def __init__(self, llm: BaseLanguageModel):
-        super().__init__('landmark_scout', llm.with_structured_output(schema=LandmarksReport))
+        super().__init__('landmark_scout')
+        self._llm = llm.with_structured_output(schema=LandmarksReport)
 
     def invoke(self, request: TripRequest) -> LandmarksReport:
         self._logger.info('🔎 Researching landmarks...')
@@ -23,7 +24,7 @@ class LandmarkScoutAgent(BaseAgent):
     @staticmethod
     def _create_prompt(req: TripRequest) -> LanguageModelInput:
         return [
-            SystemMessage(content=f"""
+            SystemMessage(content="""
             You are an expert travel agent specializing in recommending which landmarks to visit for a specific destination.
             
             You can optionally search the web if you need up-to-date information on some landmarks.
