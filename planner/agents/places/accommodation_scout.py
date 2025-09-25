@@ -24,7 +24,8 @@ class TripDestinationInformation(BaseModel):
         gt=100,
         lt=100_000
     )
-    
+
+
 class AccommodationState(BaseModel):
     trip_request: TripRequest = Field(description='The initial trip request of the user')
     destination_info: TripDestinationInformation | None = Field(
@@ -36,9 +37,9 @@ class AccommodationState(BaseModel):
         default_factory=list
     )
     report: AccommodationReport | None = Field(
-        description='The final report that will be used',    
+        description='The final report that will be used',
         default=None
-    ) 
+    )
 
 
 class AccommodationScoutAgent(BaseAgent):
@@ -51,14 +52,14 @@ class AccommodationScoutAgent(BaseAgent):
         self._llm = llm
         self._client = client
         self._workflow = self._create_workflow().compile()
-        
+
     def _create_workflow(self) -> StateGraph[AccommodationState]:
         workflow = StateGraph(state_schema=AccommodationState)
-        
+
         workflow.add_node('get_destination_info', self._get_destination_information_for_search)
         workflow.add_node('find_accommodations', self._search_for_accommodations)
         workflow.add_node('generate_accommodation_report', self._get_finalized_accommodation_report)
-        
+
         workflow.set_entry_point('get_destination_info')
         workflow.add_edge('get_destination_info', 'find_accommodations')
         workflow.add_conditional_edges(
@@ -70,26 +71,25 @@ class AccommodationScoutAgent(BaseAgent):
             }
         )
         workflow.set_finish_point('generate_accommodation_report')
-        
+
         return workflow
 
     def invoke(self, request: TripRequest) -> AccommodationReport:
         self._logger.info('🔎 Researching accommodations')
-        
+
         initial_state = AccommodationState(
             trip_request=request
         )
-        
+
         final_state = self._workflow.invoke(input=initial_state)
         report = final_state['report']
-        
+
         if isinstance(report, list):
             return AccommodationReport(report=report)
         elif isinstance(report, AccommodationReport):
             return report
-            
+
         raise ValueError(f'Invalid agent output for AccommodationReport: {type(report)}')
-    
 
     def _get_finalized_accommodation_report(self, state: AccommodationState) -> dict[str, AccommodationReport]:
         agent = create_react_agent(
@@ -117,12 +117,12 @@ class AccommodationScoutAgent(BaseAgent):
         response = agent.invoke(input={'messages': [HumanMessage(content=prompt)]})
 
         return response['structured_response']
-    
+
     def _should_expand_search(self, state: AccommodationState) -> bool:
-        return not state.accommodations 
-    
+        return not state.accommodations
+
     def _search_for_accommodations(self, state: AccommodationState) -> dict[str, list[Place]]:
-        
+
         place_search_request = PlaceSearchRequest(
             center=state.destination_info.reasonable_center,
             radius=state.destination_info.search_radius,
@@ -133,7 +133,7 @@ class AccommodationScoutAgent(BaseAgent):
         place_search_response = self._client.invoke(place_search_request)
         accommodations = [self._convert_fsq_to_place(fsq) for fsq in place_search_response.results]
 
-        return { 'accommodations': accommodations }
+        return {'accommodations': accommodations}
 
     @staticmethod
     def _convert_fsq_to_place(fsq: FoursquarePlace):
@@ -148,20 +148,21 @@ class AccommodationScoutAgent(BaseAgent):
             weather_dependent=False
         )
 
-    def _get_destination_information_for_search(self, state: AccommodationState) -> dict[str, TripDestinationInformation]:
+    def _get_destination_information_for_search(self, state: AccommodationState) -> dict[
+        str, TripDestinationInformation]:
         agent = create_react_agent(
             model=self._llm,
             tools=get_available_tools(),
             response_format=TripDestinationInformation,
         )
-        
+
         minimum_radius = 5_000 if state.destination_info is None else state.destination_info.search_radius + 5_000
 
         self._logger.info('🔎 Gathering information about the destination...')
 
         if state.destination_info is not None:
             self._logger.info('🗺️ Expanding search radius...')
-        
+
         prompt = f"""
         You are to search for accommodations in {state.trip_request.destination}.
         
@@ -173,4 +174,4 @@ class AccommodationScoutAgent(BaseAgent):
         # noinspection PyTypeChecker
         response = agent.invoke(input={'messages': [HumanMessage(content=prompt)]})
 
-        return {'destination_info': response['structured_response'] } 
+        return {'destination_info': response['structured_response']}

@@ -18,9 +18,11 @@ class TravelSegmentOptions(BaseModel):
     average_public_transport_fare: float = Field(default=2.5)
     base_taxi_fare: float = Field(default=1.5)
 
+
 class ScheduleBuilder:
     def __init__(self, llm: BaseLanguageModel):
-        self.travel_segment_llm: Runnable[str, TravelSegmentOptions] = llm.with_structured_output(schema=TravelSegmentOptions)
+        self.travel_segment_llm: Runnable[str, TravelSegmentOptions] = llm.with_structured_output(
+            schema=TravelSegmentOptions)
         self._logger = logging.getLogger(name='day_itinerary_builder')
 
     def build(self, trip_request: TripRequest, places: list[Place], themes: DailyThemes) -> list[DayItinerary]:
@@ -151,15 +153,18 @@ class ScheduleBuilder:
 
         match theme:
             case 'historic':
-                return any(word in place_text for word in ['historic', 'old', 'ancient', 'cathedral', 'palace', 'monument'])
+                return any(
+                    word in place_text for word in ['historic', 'old', 'ancient', 'cathedral', 'palace', 'monument'])
             case 'museum' | 'culture':
                 return any(word in place_text for word in ['museum', 'gallery', 'art', 'cultural', 'exhibition'])
             case 'food' | 'market':
-                return isinstance(place, Establishment) or any(word in place_text for word in ['market', 'food', 'restaurant'])
+                return isinstance(place, Establishment) or any(
+                    word in place_text for word in ['market', 'food', 'restaurant'])
             case 'nature' | 'park':
                 return any(word in place_text for word in ['park', 'garden', 'nature', 'outdoor', 'beach', 'mountain'])
             case 'neighborhood' | 'neighbourhood' | 'local':
-                return any(word in place_text for word in ['neighborhood', 'neighbourhood', 'local', 'district', 'quarter'])
+                return any(
+                    word in place_text for word in ['neighborhood', 'neighbourhood', 'local', 'district', 'quarter'])
             case _:
                 return True
 
@@ -177,13 +182,14 @@ class ScheduleBuilder:
         response = self.travel_segment_llm.invoke(input=prompt)
         return response
 
-    def calculate_travel_segments(self, activities: list[ItineraryActivity], options: TravelSegmentOptions) -> list[TravelSegment]:
+    def calculate_travel_segments(self, activities: list[ItineraryActivity], options: TravelSegmentOptions) -> list[
+        TravelSegment]:
         travel_segments: list[TravelSegment] = []
 
         for i in range(len(activities) - 1):
             current_activity = activities[i]
             next_activity = activities[i + 1]
-            
+
             if current_activity.coordinates is not None and next_activity.coordinates is not None:
                 segment = self.calculate_travel_segment(current_activity, next_activity, options)
                 travel_segments.append(segment)
@@ -199,8 +205,6 @@ class ScheduleBuilder:
         """Calculate travel between two activities"""
 
         distance_km = haversine_distance(from_activity.coordinates, to_activity.coordinates)
-        
-        
 
         if distance_km <= 0.5:
             transport_mode = TransportMode.WALKING

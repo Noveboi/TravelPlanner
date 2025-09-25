@@ -17,7 +17,6 @@ from planner.models.places import DestinationReport, Place, Accommodation, Booki
 from planner.models.trip import TripRequest
 
 
-
 class ItineraryAgentInput(BaseModel):
     trip_request: TripRequest = Field(
         description="The user's initial input."
@@ -29,7 +28,7 @@ class ItineraryAgentInput(BaseModel):
 
 class ItineraryState(BaseModel):
     """State object passed between nodes in the itinerary building workflow"""
-    trip_request: TripRequest  = Field(
+    trip_request: TripRequest = Field(
         description="The user's initial input."
     )
     destination_report: DestinationReport = Field(
@@ -140,7 +139,7 @@ class ItineraryBuilderAgent(BaseAgent):
     def _plan_daily_themes(self, state: ItineraryState) -> ItineraryState:
         """Plan themes for each day based on interests and selected places"""
         self._logger.info("❓ Generate themes for each day")
-        
+
         state.daily_themes = generate_daily_themes(self._llm, state.trip_request, state.selected_places)
         return state
 
@@ -148,7 +147,8 @@ class ItineraryBuilderAgent(BaseAgent):
         self._logger.info("🏨 Generating accommodation activities")
 
         trip_request: TripRequest = state.trip_request
-        accommodations: list[Accommodation] = [cast(Accommodation, p) for p in state.selected_places if isinstance(p, Accommodation)]
+        accommodations: list[Accommodation] = [cast(Accommodation, p) for p in state.selected_places if
+                                               isinstance(p, Accommodation)]
 
         selected_accommodation: Accommodation = select_best_accommodation(accommodations, trip_request)
 

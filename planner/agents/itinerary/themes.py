@@ -13,10 +13,11 @@ class DailyThemes(BaseModel):
     def add_additional_themes_if_incomplete(self, required_num: int) -> None:
         self.list.extend([f"Exploration Day {i + 1}" for i in range(len(list), required_num)])
 
+
 def generate_daily_themes(llm: BaseLanguageModel, request: TripRequest, places: list[Place]) -> DailyThemes:
     def _generate_themes_with_llm(prompt: str, total_days: int) -> DailyThemes:
         theme_llm = llm.with_structured_output(schema=DailyThemes)
-        
+
         try:
             response: DailyThemes = theme_llm.invoke(input=prompt)
             response.add_additional_themes_if_incomplete(required_num=total_days)
@@ -27,7 +28,6 @@ def generate_daily_themes(llm: BaseLanguageModel, request: TripRequest, places: 
                 "Nature & Parks", "Food & Markets", "Hidden Gems", "Relaxation Day"
             ]
             return DailyThemes(list=(fallback_themes * ((total_days // len(fallback_themes)) + 1))[:total_days])
-
 
     # Use LLM to generate logical daily themes
     themes_prompt = f"""
