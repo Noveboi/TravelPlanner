@@ -39,6 +39,8 @@ class AccommodationScoutAgent(BaseAgent):
         self._client = client
 
     def invoke(self, request: TripRequest) -> AccommodationReport:
+        self._logger.info('🔎 Researching accommodations')
+        
         info = self._get_destination_information_for_search(request)
 
         self._logger.info(f'Got destination information: {info.model_dump_json(indent=2)}')

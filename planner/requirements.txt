@@ -5,7 +5,3 @@ langchain-core
 langchain-openai
 langchain-tavily
 python-dotenv
-
-# Type checking
-mypy
-types-python-dateutil

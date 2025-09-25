@@ -4,12 +4,14 @@ from langgraph.graph import StateGraph
 from pydantic import BaseModel, Field
 
 from planner.agents.base import BaseAgent
+from planner.agents.places.accommodation_scout import AccommodationScoutAgent
 from planner.agents.places.establishment_scout import EstablishmentScoutAgent
 from planner.agents.places.event_scout import EventScoutAgent
 from planner.agents.places.landmark_scout import LandmarkScoutAgent
 from planner.models.places import DestinationReport, LandmarksReport, EstablishmentReport, EventsReport, \
     AccommodationReport
 from planner.models.trip import TripRequest
+from planner.tools.foursquare import FoursquareApiClient
 
 
 class DestinationState(BaseModel):
@@ -25,8 +27,9 @@ class DestinationScoutAgent(BaseAgent):
     Agent that composes other scout agents and executes them in parallel (https://langchain-ai.github.io/langgraph/tutorials/workflows/#parallelization)
     """
 
-    def __init__(self, llm: BaseLanguageModel):
+    def __init__(self, llm: BaseLanguageModel, client: FoursquareApiClient):
         super().__init__(name='destination_scout')
+        self._client = client
         self._llm = llm
         self.workflow = self._create_workflow().compile()
 
@@ -39,13 +42,13 @@ class DestinationScoutAgent(BaseAgent):
             accommodations=AccommodationReport(report=[]),
         )
 
-        final_state: DestinationState = self.workflow.invoke(input=initial_state)
+        final_state = self.workflow.invoke(input=initial_state)
 
         return DestinationReport(
-            landmarks=final_state.landmarks,
-            establishments=final_state.establishments,
-            events=final_state.events,
-            accommodations=final_state.accommodations
+            landmarks=final_state['landmarks'],
+            establishments=final_state['establishments'],
+            events=final_state['events'],
+            accommodations=final_state['accommodations']
         )
 
     def _create_workflow(self) -> StateGraph[DestinationState]:
@@ -67,34 +70,34 @@ class DestinationScoutAgent(BaseAgent):
 
         return workflow
 
-    def _research_landmarks(self, state: DestinationState) -> DestinationState:
+    def _research_landmarks(self, state: DestinationState) -> dict[str, LandmarksReport]:
         scout = LandmarkScoutAgent(self._llm)
         result = scout.invoke(state.trip_request)
+        
+        self._logger.info('✅ Finished Landmarks')
 
-        state.report.landmarks = result
+        return { 'landmarks': result }
 
-        return state
-
-    def _research_events(self, state: DestinationState) -> DestinationState:
+    def _research_events(self, state: DestinationState) -> dict[str, EventsReport]:
         scout = EventScoutAgent(self._llm)
         result = scout.invoke(state.trip_request)
 
-        state.report.events = result
+        self._logger.info('✅ Finished Events')
 
-        return state
+        return { 'events': result }
 
-    def _research_establishments(self, state: DestinationState) -> DestinationState:
+    def _research_establishments(self, state: DestinationState) -> dict[str, EstablishmentReport]:
         scout = EstablishmentScoutAgent(self._llm)
         result = scout.invoke(state.trip_request)
 
-        state.report.establishments = result
+        self._logger.info('✅ Finished Establishments')
 
-        return state
+        return { 'establishments': result }
 
-    def _research_accommodations(self, state: DestinationState) -> DestinationState:
-        scout = EstablishmentScoutAgent(self._llm)
+    def _research_accommodations(self, state: DestinationState) -> dict[str, AccommodationReport]:
+        scout = AccommodationScoutAgent(self._llm, self._client)
         result = scout.invoke(state.trip_request)
 
-        state.report.accommodations = result
+        self._logger.info('✅ Finished Accommodations')
 
-        return state
+        return { 'accommodations': result }
