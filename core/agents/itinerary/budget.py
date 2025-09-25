@@ -19,7 +19,8 @@ def validate_budget(request: TripRequest, itineraries: list[DayItinerary]) -> Bu
     )
 
 
-def create_budget_breakdown(accommodation: Accommodation, itineraries: list[DayItinerary], num_people: int) -> dict[str, float]:
+def create_budget_breakdown(accommodation: Accommodation, itineraries: list[DayItinerary], num_people: int) -> dict[
+    str, float]:
     """Create a breakdown of costs by category"""
 
     # Hotels usually adjust price for the number of guests
@@ -45,7 +46,7 @@ def create_budget_breakdown(accommodation: Accommodation, itineraries: list[DayI
         # Add transportation costs
         for segment in day_itinerary.travel_segments:
             breakdown["transportation"] += segment.total_cost
-            
+
     breakdown['total'] = sum(breakdown.values())
 
     return breakdown

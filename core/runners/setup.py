@@ -28,6 +28,7 @@ example_request = TripRequest(
     interests=['Culturally important landmarks', 'Scenic beaches', 'Parks', 'Mountain hiking for one day']
 )
 
+
 def ensure_api_keys_exist() -> None:
     required_keys: list[str] = [
         'TAVILY_API_KEY',
@@ -36,6 +37,6 @@ def ensure_api_keys_exist() -> None:
     ]
 
     missing: list[str] = [f'"{k}"' for k in required_keys if not os.environ.get(k)]
-    
+
     if missing:
         raise KeyError(f'Required keys are missing from the .env file: {", ".join(missing)}')

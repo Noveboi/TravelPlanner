@@ -22,9 +22,9 @@ class LandmarkScoutAgent(BaseAgent):
         response = self._llm.invoke(prompt)
 
         assert isinstance(response, LandmarksReport)
-        
+
         self._log.info(f'Found {len(response.report)} landmarks')
-        
+
         return response
 
     @staticmethod

@@ -77,11 +77,10 @@ class AccommodationScoutAgent(BaseAgent):
 
         final_state = self._workflow.invoke(input=initial_state)
         report = final_state['report']
-        
-        assert isinstance(report, AccommodationReport)
-        
-        return report
 
+        assert isinstance(report, AccommodationReport)
+
+        return report
 
     def _get_finalized_accommodation_report(self, state: AccommodationState) -> dict[str, AccommodationReport]:
         agent = create_react_agent(
@@ -110,9 +109,9 @@ class AccommodationScoutAgent(BaseAgent):
         structured_response = response['structured_response']
 
         if isinstance(structured_response, list):
-            return { 'report': AccommodationReport(report=structured_response) }
+            return {'report': AccommodationReport(report=structured_response)}
         elif isinstance(structured_response, AccommodationReport):
-            return { 'report': structured_response }
+            return {'report': structured_response}
 
         raise ValueError(f'Invalid agent output for AccommodationReport: {type(structured_response)}')
 
@@ -137,6 +136,4 @@ class AccommodationScoutAgent(BaseAgent):
 
     def _get_destination_information_for_search(self, state: AccommodationState) -> dict[str, SearchInformation]:
         info = get_search_info(state.trip_request, self._llm, self._log, state.search_info)
-        return { 'search_info': info }
-
-
+        return {'search_info': info}

@@ -68,7 +68,8 @@ def get_search_info(
     structured_response = response['structured_response']
 
     assert isinstance(structured_response, SearchInformation)
-    
-    log.info(f'🔎 Search in a {structured_response.search_radius}m radius at ({structured_response.reasonable_center.to_string()})')
+
+    log.info(
+        f'🔎 Search in a {structured_response.search_radius}m radius at ({structured_response.reasonable_center.to_string()})')
 
     return structured_response

@@ -18,7 +18,9 @@ class TravelSegmentOptions(BaseModel):
     average_public_transport_fare: float = Field(default=2.5)
     base_taxi_fare: float = Field(default=1.5)
 
+
 T = TypeVar('T')
+
 
 def _items_of_type(items: list[Any], t: Type[T]) -> list[T]:
     return [x for x in items if isinstance(x, t)]
@@ -40,7 +42,7 @@ class ScheduleBuilder:
         self._logger.info('📅 Building itineraries for each day')
         self._logger.info(f'{len(places)} Available places: {[p.name for p in places]}')
         self._logger.info(f'Available themes: {themes.list}')
-        
+
         daily_itineraries: list[DayItinerary] = []
         current_date = trip_request.start_date
         options = self._get_travel_segment_options()
@@ -49,14 +51,14 @@ class ScheduleBuilder:
 
         for day_num, theme in enumerate(themes.list, 1):
             self._logger.info(f'📅 Building itinerary for day {day_num} (theme: {theme})')
-            
+
             if len(available_places) < 8:
-                available_places = places.copy() # Make all places available again if we run out of places
-            
+                available_places = places.copy()  # Make all places available again if we run out of places
+
             day_places = self._assign_places_to_day(available_places, theme, day_num)
             activities = self._build_day_activities(
-                all_places=places, 
-                available_places=day_places, 
+                all_places=places,
+                available_places=day_places,
                 current_date=current_date)
             travel_segments = self.calculate_travel_segments(activities, options)
 
@@ -76,7 +78,8 @@ class ScheduleBuilder:
             daily_itineraries.append(day_itinerary)
             current_date += timedelta(days=1)
 
-            available_places = [p for p in places if p not in day_places] # Exclude the places from the current day for next days
+            available_places = [p for p in places if
+                                p not in day_places]  # Exclude the places from the current day for next days
 
         return daily_itineraries
 
@@ -103,11 +106,12 @@ class ScheduleBuilder:
         selected = must_see[:3] + should_see[:3] + nice_to_see[:2]
 
         return selected
-    
-    def _build_day_activities(self, all_places: list[Place], available_places: list[Place], current_date: date) -> list[ItineraryActivity]:
+
+    def _build_day_activities(self, all_places: list[Place], available_places: list[Place], current_date: date) -> list[
+        ItineraryActivity]:
         """Build activities for a single day"""
         activities: list[ItineraryActivity] = []
-        
+
         self._logger.info(f'🤔 Building activities for {current_date}')
 
         # Start at 9 AM
@@ -117,13 +121,13 @@ class ScheduleBuilder:
         landmarks = _items_of_type(available_places, Landmark)
         establishments = _items_of_type(available_places, Establishment)
         events = [x for x in _items_of_type(available_places, Event) if x.date_and_time.date() == date]
-        
+
         if len(landmarks) < 5:
             landmarks = _items_of_type(all_places, Landmark)
-            
+
         if len(establishments) < 4:
             establishments = _items_of_type(all_places, Establishment)
-        
+
         shuffle(landmarks)
         shuffle(establishments)
 
@@ -137,7 +141,7 @@ class ScheduleBuilder:
 
         # Lunchtime (12 PM-2 PM)
         lunch_places = [e for e in establishments if 'restaurant' in e.establishment_type.lower()]
-        
+
         shuffle(lunch_places)
 
         if lunch_places:
@@ -152,7 +156,7 @@ class ScheduleBuilder:
 
         # Afternoon activities (2 PM-6 PM)
         afternoon_places = landmarks[2:4] + establishments[1:2]
-        
+
         shuffle(afternoon_places)
 
         for place in afternoon_places:
@@ -169,7 +173,7 @@ class ScheduleBuilder:
         # Evening meal (7 PM)
         dinner_places = [e for e in establishments if
                          'restaurant' in e.establishment_type.lower() and e not in [lunch_places[0]] if lunch_places]
-        
+
         shuffle(dinner_places)
 
         if dinner_places:
@@ -182,7 +186,7 @@ class ScheduleBuilder:
             activities.append(dinner_activity)
 
         activities.sort(key=lambda x: x.start_time)
-        
+
         self._logger.info(f'Created {len(activities)} activities for {current_date}')
 
         return activities

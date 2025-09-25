@@ -9,7 +9,8 @@ def should_use_preset_request() -> bool:
     return 'y' in response.lower()
 
 
-def _prompt_until_valid(prompt: str, convert: Callable[[str], Any], error_msg: str = 'The input was not correct, try again!') -> Any:
+def _prompt_until_valid(prompt: str, convert: Callable[[str], Any],
+                        error_msg: str = 'The input was not correct, try again!') -> Any:
     while True:
         response = input(prompt + '\n')
         try:

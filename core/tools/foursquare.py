@@ -107,12 +107,12 @@ class FoursquareApiClient:
 
         if fsq.fsq_category_ids:
             params['fsq_category_ids'] = fsq.fsq_category_ids
-            
+
         if request.query:
             params['query'] = request.query
 
         response = requests.get(self._base_url + '/search', params=params, headers=headers)
-        
+
         self._logger.info('Received response from Foursquare')
 
         response.raise_for_status()
