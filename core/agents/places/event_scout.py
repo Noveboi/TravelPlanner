@@ -3,8 +3,8 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 from core.models.places import EventsReport
 from core.models.trip import TripRequest
-from ..base import BaseAgent
 from core.tools.tools import get_available_tools
+from ..base import BaseAgent
 
 
 class EventScoutAgent(BaseAgent):

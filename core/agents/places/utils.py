@@ -11,6 +11,7 @@ from core.models.trip import TripRequest
 from core.tools.foursquare import FoursquarePlace
 from core.tools.tools import get_available_tools
 
+
 class SearchInformation(BaseModel):
     reasonable_center: Coordinates = Field(
         description='A reasonable center for the given destination location.'

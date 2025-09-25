@@ -10,7 +10,8 @@ from core.agents.places.accommodation_scout import AccommodationScoutAgent
 from core.agents.places.establishment_scout import EstablishmentScoutAgent
 from core.agents.places.event_scout import EventScoutAgent
 from core.agents.places.landmark_scout import LandmarkScoutAgent
-from core.models.places import DestinationReport, LandmarksReport, EstablishmentReport, EventsReport, AccommodationReport
+from core.models.places import DestinationReport, LandmarksReport, EstablishmentReport, EventsReport, \
+    AccommodationReport
 from core.models.trip import TripRequest
 from core.tools.foursquare import FoursquareApiClient
 

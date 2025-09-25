@@ -1,8 +1,8 @@
 ﻿from time import sleep
 
+import core.agents.workflow as workflow
 import core.runners.setup as base
 import user_prompts as prompts
-import core.agents.workflow as workflow
 from core.runners.setup import example_request
 
 if __name__ == '__main__':
