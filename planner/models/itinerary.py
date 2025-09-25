@@ -109,9 +109,6 @@ class TripItinerary(BaseModel):
     total_days: int = Field(description="Total number of days")
     daily_itineraries: List[DayItinerary] = Field(description="Day-by-day breakdown")
     accommodation: Accommodation = Field()
-    total_estimated_cost: float = Field(
-        description="Total trip cost estimate"
-    )
     budget_breakdown: Dict[str, float] = Field(
         description="Cost breakdown by category",
         default_factory=dict

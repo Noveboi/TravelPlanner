@@ -198,8 +198,7 @@ class ItineraryBuilderAgent(BaseAgent):
             total_days=(trip_request.end_date - trip_request.start_date).days + 1,
             daily_itineraries=state.daily_itineraries,
             accommodation=require(state.accommodation),
-            total_estimated_cost=require(state.budget_tracker).total_estimated_cost,
-            budget_breakdown=create_budget_breakdown(state),
+            budget_breakdown=create_budget_breakdown(require(state.accommodation), state.daily_itineraries, trip_request.travelers),
         )
 
         return state
