@@ -81,11 +81,11 @@ class ItineraryBuilderAgent(BaseAgent):
             errors=[]
         )
 
-        final_state: ItineraryState = self.workflow.invoke(
+        final_state = self.workflow.invoke(
             input=initial_state
         )
 
-        return final_state.final_itinerary
+        return final_state['final_itinerary']
 
     def _create_workflow(self) -> StateGraph[ItineraryState, Any, ItineraryAgentInput, Any]:
         workflow = StateGraph(

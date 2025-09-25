@@ -47,6 +47,6 @@ def create_budget_breakdown(daily_itineraries: list[DayItinerary]) -> dict[str, 
 
         # Add transportation costs
         for segment in day_itinerary.travel_segments:
-            breakdown["transportation"] += segment.cost
+            breakdown["transportation"] += segment.total_cost
 
     return breakdown

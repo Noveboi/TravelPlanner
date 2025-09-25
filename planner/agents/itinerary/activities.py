@@ -75,9 +75,9 @@ def optimize_activity_order(activities: list[ItineraryActivity], places: list[Pl
     for activity in optimized:
         activity.start_time = current_time
         
-        estimated_stay_hours = next((p for p in places if p.id == activity.place_id), 2)
+        estimated_stay_hours = next((p.typical_hours_of_stay for p in places if p.id == activity.place_id), 2.0)
         
-        activity.end_time = current_time + timedelta(estimated_stay_hours)
+        activity.end_time = current_time + timedelta(hours=estimated_stay_hours)
         current_time = activity.end_time + timedelta(minutes=30)  # Travel buffer
 
     return optimized

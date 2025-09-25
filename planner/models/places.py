@@ -52,8 +52,7 @@ class Place(BaseModel):
     )
     typical_hours_of_stay: float = Field(
         description="The amount of time people typically spend in this place. In hours",
-        ge=0,
-        lt=24
+        ge=0
     )
     weather_dependent: bool = Field(
         description="Whether the experience in this place depends on the weather"
