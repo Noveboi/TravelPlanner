@@ -126,11 +126,11 @@ class ItineraryBuilderAgent(BaseAgent):
         trip_request = state.trip_request
         destination_report = state.destination_report
 
+        # Do not include accommodations
         all_places = (
                 destination_report.landmarks.report +
                 destination_report.establishments.report +
-                destination_report.events.report +
-                destination_report.accommodations.report
+                destination_report.events.report
         )
 
         state.selected_places = filter_places_by_criteria(all_places, trip_request)
@@ -147,8 +147,7 @@ class ItineraryBuilderAgent(BaseAgent):
         self._logger.info("🏨 Generating accommodation activities")
 
         trip_request: TripRequest = state.trip_request
-        accommodations: list[Accommodation] = [cast(Accommodation, p) for p in state.selected_places if
-                                               isinstance(p, Accommodation)]
+        accommodations = state.destination_report.accommodations.report
 
         selected_accommodation: Accommodation = select_best_accommodation(accommodations, trip_request)
 

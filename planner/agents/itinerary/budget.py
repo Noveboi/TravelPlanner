@@ -7,7 +7,7 @@ from planner.models.trip import TripRequest
 class BudgetTracker(BaseModel):
     total_estimated_cost: float = Field(
         description="The total estimated cost of the entire trip",
-        gt=0
+        ge=0
     )
     is_over_budget: bool = Field(
         description="Indicates if the total cost exceeds the budget"
