@@ -1,6 +1,7 @@
 ﻿from datetime import datetime, timedelta
 
 from planner.agents.itinerary.place_score import estimate_place_cost
+from planner.agents.itinerary.spherical_distance import haversine_distance
 from planner.models.itinerary import ItineraryActivity, ActivityType
 from planner.models.places import Place, Establishment, Event, BookingType
 
@@ -41,3 +42,40 @@ class ItineraryActivityFactory:
             booking_url=place.website,
             notes=notes
         )
+
+def optimize_activity_order(activities: list[ItineraryActivity]) -> list[ItineraryActivity]:
+    """Optimize the order of activities to minimize travel time using a nearest neighbor algorithm"""
+    if len(activities) <= 2:
+        return activities
+
+    # Simple nearest neighbor optimization
+    optimized = [activities[0]]  # Start with the first activity
+    remaining = activities[1:]
+
+    while remaining:
+        current = optimized[-1]
+
+        # Find the nearest remaining activity
+        nearest_idx = 0
+        min_distance = float('inf')
+
+        for i, activity in enumerate(remaining):
+            distance = haversine_distance(current.coordinates, activity.coordinates)
+            if distance < min_distance:
+                min_distance = distance
+                nearest_idx = i
+
+        # Add the nearest activity and remove from remaining
+        optimized.append(remaining.pop(nearest_idx))
+
+    # Update start/end times based on the new order
+    current_time = optimized[0].start_time
+
+    for activity in optimized:
+        activity.start_time = current_time
+        activity.end_time = current_time + timedelta(
+            hours=next(p.typical_hours_of_stay for p in [] if p.id == activity.place_id),
+        ) or timedelta(hours=2)
+        current_time = activity.end_time + timedelta(minutes=30)  # Travel buffer
+
+    return optimized

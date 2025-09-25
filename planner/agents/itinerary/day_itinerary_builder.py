@@ -1,13 +1,26 @@
-﻿from datetime import timedelta, datetime, time, date
+﻿import logging
+from datetime import timedelta, datetime, time, date
+from typing import NamedTuple
 
-from planner.agents.itinerary.activity_factory import ItineraryActivityFactory
+from langchain_core.language_models import BaseLanguageModel
+from langchain_core.runnables import Runnable
+
+from planner.agents.itinerary.activities import ItineraryActivityFactory
 from planner.agents.itinerary.agent import DailyThemes
-from planner.models.itinerary import DayItinerary, ActivityType, ItineraryActivity
+from planner.agents.itinerary.spherical_distance import haversine_distance
+from planner.models.itinerary import DayItinerary, ActivityType, ItineraryActivity, TransportMode, TravelSegment
 from planner.models.places import Place, Establishment, Priority, Landmark, Event
 from planner.models.trip import TripRequest
 
+class TravelSegmentOptions(NamedTuple):
+    average_public_transport_fare: float = 2.5
+    base_taxi_fare: float = 1.5
 
 class ScheduleBuilder:
+    def __init__(self, llm: BaseLanguageModel):
+        self.travel_segment_llm: Runnable[str, TravelSegmentOptions] = llm.with_structured_output(schema=TravelSegmentOptions)
+        self._logger = logging.getLogger(name='day_itinerary_builder')
+    
     def build(self, trip_request: TripRequest, places: list[Place], themes: DailyThemes) -> list[DayItinerary]:
         """
         Constructs an itinerary for each day of the trip 
@@ -17,17 +30,23 @@ class ScheduleBuilder:
         """
         daily_itineraries: list[DayItinerary] = []
         current_date = trip_request.start_date
+        options = self._get_travel_segment_options()
         
         for day_num, theme in enumerate(themes.list, 1):
             day_places = self._assign_places_to_day(places, theme)
             activities = self._build_day_activities(day_places, current_date)
+            travel_segments = self.calculate_travel_segments(activities, options)
+            
+            total_activity_cost: float = sum(a.estimated_cost for a in activities)
+            total_travel_cost: float = sum(t.total_cost for t in travel_segments)
 
             day_itinerary = DayItinerary(
                 date=current_date,
                 day_number=day_num,
                 theme=theme,
                 activities=activities,
-                total_estimated_cost=sum(a.estimated_cost for a in activities),
+                travel_segments=travel_segments,
+                total_estimated_cost=total_activity_cost + total_travel_cost,
                 key_highlights=[a.name for a in activities if a.activity_type == ActivityType.SIGHTSEEING][:3]
             )
 
@@ -142,3 +161,67 @@ class ScheduleBuilder:
                 return any(word in place_text for word in ['neighborhood', 'neighbourhood', 'local', 'district', 'quarter'])
             case _:
                 return True
+
+    def _get_travel_segment_options(self) -> TravelSegmentOptions:
+        prompt = """
+        Search for trusted sources on transport fares. Specifically:
+        - The standard public transport fare (average for buses, metro, etc.)
+        - The base taxi fare
+        
+        Convert all currencies to EUR.
+        """
+
+        self._logger.info("Searching for public transport fares")
+
+        response = self.travel_segment_llm.invoke(input=prompt)
+        return response
+    
+    def calculate_travel_segments(self, activities: list[ItineraryActivity], options: TravelSegmentOptions) -> list[TravelSegment]:
+        travel_segments: list[TravelSegment] = []
+
+        for i in range(len(activities) - 1):
+            current_activity = activities[i]
+            next_activity = activities[i + 1]
+
+            if current_activity.coordinates and next_activity.coordinates:
+                segment = self.calculate_travel_segment(current_activity, next_activity, options)
+                travel_segments.append(segment)
+        
+        return travel_segments
+    
+    @staticmethod
+    def calculate_travel_segment(
+        from_activity: ItineraryActivity,
+        to_activity: ItineraryActivity,
+        options: TravelSegmentOptions
+    ) -> TravelSegment:
+        """Calculate travel between two activities"""
+    
+        distance_km = haversine_distance(from_activity.coordinates, to_activity.coordinates)
+    
+        if distance_km <= 0.5:
+            transport_mode = TransportMode.WALKING
+            duration_minutes = max(5, int(distance_km * 12))  # 12 min per km walking
+            cost = 0.0
+            instructions = f"Walk {int(distance_km * 1000)}m to {to_activity.name} ({duration_minutes} mins)"
+            
+        elif distance_km <= 3:
+            transport_mode = TransportMode.PUBLIC_TRANSPORT
+            duration_minutes = max(10, int(distance_km * 8))  # 8 min per km public transport
+            cost = options.average_public_transport_fare  # Average public transport fare
+            instructions = f"Take public transport to {to_activity.name} ({duration_minutes} mins, €{cost:.2f})"
+            
+        else:
+            transport_mode = TransportMode.TAXI
+            duration_minutes = max(15, int(distance_km * 5))  # 5 min per km by car
+            cost = options.base_taxi_fare + (distance_km * 1.20)  # Base fare + per km
+            instructions = f"Take taxi to {to_activity.name} ({duration_minutes} mins, ~€{cost:.2f})"
+    
+        return TravelSegment(
+            from_activity_id=from_activity.id,
+            to_activity_id=to_activity.id,
+            transport_mode=transport_mode,
+            duration_minutes=duration_minutes,
+            total_cost=cost,
+            instructions=instructions
+        )
