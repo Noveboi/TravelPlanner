@@ -104,8 +104,8 @@ class TripItinerary(BaseModel):
     Complete itinerary for the entire trip
     """
     destination: str = Field(description="Trip destination")
-    start_date: datetime = Field(description="Trip start date")
-    end_date: datetime = Field(description="Trip end date")
+    start_date: date = Field(description="Trip start date")
+    end_date: date = Field(description="Trip end date")
     total_days: int = Field(description="Total number of days")
     daily_itineraries: List[DayItinerary] = Field(description="Day-by-day breakdown")
     accommodation_plan: List[ItineraryActivity] = Field(
@@ -117,12 +117,4 @@ class TripItinerary(BaseModel):
     budget_breakdown: Dict[str, float] = Field(
         description="Cost breakdown by category",
         default_factory=dict
-    )
-    packing_suggestions: List[str] = Field(
-        description="Packing recommendations based on activities",
-        default_factory=list
-    )
-    general_tips: List[str] = Field(
-        description="General travel tips for the destination",
-        default_factory=list
     )
