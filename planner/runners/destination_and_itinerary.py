@@ -5,12 +5,14 @@ from planner.agents.places.destination_scout import DestinationScoutAgent
 from planner.setup import log, llm, example_request
 from planner.tools.foursquare import FoursquareApiClient
 
+
 def _safe_filename_component(text: str) -> str:
     """
     Sanitize a string to be safe for file names across operating systems.
     Keeps alphanumerics, dashes, and underscores; replaces others with underscores.
     """
     return "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in text.strip().lower())
+
 
 if __name__ == '__main__':
     scout_agent = DestinationScoutAgent(

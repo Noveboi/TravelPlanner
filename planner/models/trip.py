@@ -37,15 +37,15 @@ class TripRequest(BaseModel):
         description="List of specific interests or activities the travelers want to experience",
         min_length=1
     )
-    
+
     @model_validator(mode='after')
     def verify_dates(self) -> Self:
         if self.start_date >= self.end_date:
             raise ValueError('Start date needs to be before end date')
-        
+
         if self.end_date < date.today():
             raise ValueError('You cannot specify a trip in the past')
-        
+
         return self
 
     @property

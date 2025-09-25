@@ -20,9 +20,9 @@ class LandmarkScoutAgent(BaseAgent):
 
         prompt = self._create_prompt(request)
         response = self._llm.invoke(prompt)
-        
+
         assert isinstance(response, LandmarksReport)
-        
+
         return response
 
     @staticmethod

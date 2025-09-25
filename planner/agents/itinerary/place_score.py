@@ -18,7 +18,6 @@ def estimate_place_cost(place: Place) -> float:
             return min(options)
         case _:
             return 0
-        
 
 
 def filter_places_by_criteria(places: List[Place], trip_request: TripRequest) -> List[Place]:

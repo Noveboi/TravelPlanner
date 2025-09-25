@@ -178,9 +178,9 @@ class ScheduleBuilder:
         self._logger.info("🚌🚇 Searching for public transport fares")
 
         response = self._llm.with_structured_output(schema=TravelSegmentOptions).invoke(input=prompt)
-        
+
         assert isinstance(response, TravelSegmentOptions)
-        
+
         return response
 
     def calculate_travel_segments(self, activities: list[ItineraryActivity], options: TravelSegmentOptions) -> list[

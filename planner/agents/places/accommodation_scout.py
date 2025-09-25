@@ -137,7 +137,7 @@ class AccommodationScoutAgent(BaseAgent):
         )
 
         place_search_response = require(self._client.invoke(place_search_request))
-        
+
         accommodations = [self._convert_fsq_to_place(fsq) for fsq in place_search_response.results]
 
         return {'accommodations': accommodations}

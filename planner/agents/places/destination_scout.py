@@ -55,8 +55,8 @@ class DestinationScoutAgent(BaseAgent):
 
     def _create_workflow(self) -> StateGraph[DestinationState, Any, DestinationState, DestinationState]:
         workflow = StateGraph(
-            state_schema=DestinationState, 
-            input_schema=DestinationState, 
+            state_schema=DestinationState,
+            input_schema=DestinationState,
             output_schema=DestinationState)
 
         workflow.add_node('landmarks', self._research_landmarks)

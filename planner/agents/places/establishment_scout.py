@@ -27,9 +27,9 @@ class EstablishmentScoutAgent(BaseAgent):
         self._logger.info('Compiling search results into comprehensive list...')
         prompt = self._create_structured_prompt(request, search_results)
         response = self._structured_llm.invoke(prompt)
-        
+
         assert isinstance(response, EstablishmentReport)
-        
+
         return response
 
     @staticmethod

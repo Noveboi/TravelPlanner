@@ -116,9 +116,9 @@ class ItineraryBuilderAgent(BaseAgent):
 
         # Do not include accommodations
         all_places: list[Place] = (
-            [cast(Place, x) for x in destination_report.landmarks.report] +
-            [cast(Place, x) for x in destination_report.establishments.report] +
-            [cast(Place, x) for x in destination_report.events.report]
+                [cast(Place, x) for x in destination_report.landmarks.report] +
+                [cast(Place, x) for x in destination_report.establishments.report] +
+                [cast(Place, x) for x in destination_report.events.report]
         )
 
         state.selected_places = filter_places_by_criteria(all_places, trip_request)
@@ -127,12 +127,12 @@ class ItineraryBuilderAgent(BaseAgent):
     def _plan_daily_themes(self, state: ItineraryState) -> ItineraryState:
         """Plan themes for each day based on interests and selected places"""
         self._logger.info("❓ Generate themes for each day")
-        
+
         state.daily_themes = generate_daily_themes(
-            self._llm, 
-            state.trip_request, 
+            self._llm,
+            state.trip_request,
             require(state.selected_places))
-        
+
         return state
 
     def _allocate_accommodation(self, state: ItineraryState) -> ItineraryState:
@@ -150,8 +150,8 @@ class ItineraryBuilderAgent(BaseAgent):
         schedule_builder = ScheduleBuilder(self._llm)
 
         state.daily_itineraries = schedule_builder.build(
-            state.trip_request, 
-            require(state.selected_places), 
+            state.trip_request,
+            require(state.selected_places),
             require(state.daily_themes))
 
         return state
@@ -167,11 +167,11 @@ class ItineraryBuilderAgent(BaseAgent):
                 continue
 
             optimized_activities = optimize_activity_order(
-                activities_with_coordinates, 
+                activities_with_coordinates,
                 require(state.selected_places))
 
             # Replace the activities in the day
-            other_activities = [a for a in day_itinerary.activities if a.coordinates is None ]
+            other_activities = [a for a in day_itinerary.activities if a.coordinates is None]
 
             day_itinerary.activities = optimized_activities + other_activities
             day_itinerary.activities.sort(key=lambda x: x.start_time)

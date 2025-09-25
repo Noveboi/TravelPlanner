@@ -27,9 +27,9 @@ class EventScoutAgent(BaseAgent):
 
         structure_prompt = self._create_structure_prompt(request, search_result.content)
         response = self._structured_llm.invoke(structure_prompt)
-        
+
         assert isinstance(response, EventsReport)
-        
+
         return response
 
     @staticmethod
