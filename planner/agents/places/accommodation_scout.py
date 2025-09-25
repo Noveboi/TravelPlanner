@@ -96,7 +96,7 @@ class AccommodationScoutAgent(BaseAgent):
         return Place(
             name=fsq.name,
             coordinates=Coordinates(latitude=fsq.latitude, longitude=fsq.longitude),
-            priority=Priority.MUST_SEE,
+            priority=Priority.ESSENTIAL,
             reason_to_go='',
             website=fsq.website,
             booking_type=BookingType.REQUIRED,

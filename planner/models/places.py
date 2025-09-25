@@ -16,10 +16,10 @@ class BookingType(str, Enum):
     NONE = "None"
 
 class Priority(str, Enum):
-    MUST_SEE = "Must See"
-    SHOULD_SEE = "Should See"
-    NICE_TO_SEE = "Nice to See"
-    CAN_SKIP = "Can Skip"
+    ESSENTIAL = "Essential"
+    HIGH = "High"
+    MEDIUM = "Medium"
+    LOW = "Low"
 
 class Place(BaseModel):
     """
@@ -71,6 +71,9 @@ class Establishment(Place):
     """
     Describes a place that is an establishment, like a restaurant or a café.
     """
+    average_price: float = Field(
+        description="The average price for the establishment"
+    )
     establishment_type: str = Field(
         description="The type of the establishment",
         examples=['Restaurant', 'Cafe', 'Bar', 'Pub', 'Tavern', 'Canteen']

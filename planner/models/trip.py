@@ -23,10 +23,12 @@ class TripRequest(BaseModel):
         description="The ending date of the trip"
     )
     budget: float = Field(
-        description="The total budget for the trip in EUR"
+        description="The total budget for the trip in EUR",
+        gt=0
     )
     travelers: int = Field(
-        description="The number of people traveling together"
+        description="The number of people traveling together",
+        gt=0
     )
     trip_type: TripType = Field(
         description="The type of group traveling (solo, couple, friends, or group)"
@@ -36,15 +38,19 @@ class TripRequest(BaseModel):
     )
 
     @property
-    def duration(self) -> int:
-        return (self.end_date - self.start_date).days + 1
+    def total_nights(self) -> int:
+        return (self.end_date - self.start_date).days
+    
+    @property
+    def total_days(self) -> int:
+        return self.total_nights + 1
 
     def format_interests(self) -> str:
         return ", ".join(interest.title() for interest in self.interests)
 
     def format_for_llm(self) -> str:
         return f"""
-        - Duration: {self.duration} days ({self.start_date} to {self.end_date})
+        - Duration: {self.total_days} days ({self.start_date} to {self.end_date})
         - Budget: ${self.budget:,.2f} EUR
         - Group: {self.travelers} travelers - '{self.trip_type.value.title()}' trip
         - Interests: {self.format_interests()}
