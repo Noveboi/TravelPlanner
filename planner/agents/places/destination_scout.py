@@ -20,7 +20,7 @@ class DestinationState(BaseModel):
     accommodations: AccommodationReport = Field()
 
 
-class DestinationScout(BaseAgent):
+class DestinationScoutAgent(BaseAgent):
     """
     Agent that composes other scout agents and executes them in parallel (https://langchain-ai.github.io/langgraph/tutorials/workflows/#parallelization)
     """
