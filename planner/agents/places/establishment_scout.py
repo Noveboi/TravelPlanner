@@ -60,7 +60,7 @@ class EstablishmentScoutAgent(BaseAgent):
             
             """, ),
             HumanMessage(content=f"""
-            Use the following search results to geneate a comprehensive and prioritized list of establishments based in {req.destination}:
+            Use the following search results to generate a comprehensive and prioritized list of establishments based in {req.destination}:
             {search_results}
             
             Consider the following travel parameters when curating establishments:

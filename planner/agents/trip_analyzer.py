@@ -7,7 +7,8 @@ from .base import BaseAgent
 
 class TripAnalyzerAgent(BaseAgent):
     def __init__(self, llm: BaseLanguageModel) -> None:
-        super().__init__('trip_analyzer', llm.with_structured_output(schema=GeneralTripAnalysis))
+        super().__init__('trip_analyzer')
+        self._llm = llm
 
     def invoke(self, request: TripRequest) -> GeneralTripAnalysis:
         self._logger.info('🚀 Invoked')

@@ -58,7 +58,8 @@ class PlaceSearchRequest(BaseModel):
     limit: int = Field(
         description="Limit the number of results",
         gt=0,
-        le=50
+        le=50,
+        default=35
     )
 
 

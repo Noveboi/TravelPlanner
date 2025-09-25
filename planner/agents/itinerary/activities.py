@@ -40,11 +40,11 @@ class ItineraryActivityFactory:
             coordinates=place.coordinates,
             booking_required=place.booking_type == BookingType.REQUIRED,
             booking_url=place.website,
-            notes=notes
+            notes=notes if notes is not None else []
         )
 
 
-def optimize_activity_order(activities: list[ItineraryActivity]) -> list[ItineraryActivity]:
+def optimize_activity_order(activities: list[ItineraryActivity], places: list[Place]) -> list[ItineraryActivity]:
     """Optimize the order of activities to minimize travel time using a nearest neighbor algorithm"""
     if len(activities) <= 2:
         return activities
@@ -74,9 +74,10 @@ def optimize_activity_order(activities: list[ItineraryActivity]) -> list[Itinera
 
     for activity in optimized:
         activity.start_time = current_time
-        activity.end_time = current_time + timedelta(
-            hours=next(p.typical_hours_of_stay for p in [] if p.id == activity.place_id),
-        ) or timedelta(hours=2)
+        
+        estimated_stay_hours = next((p for p in places if p.id == activity.place_id), 2)
+        
+        activity.end_time = current_time + timedelta(estimated_stay_hours)
         current_time = activity.end_time + timedelta(minutes=30)  # Travel buffer
 
     return optimized

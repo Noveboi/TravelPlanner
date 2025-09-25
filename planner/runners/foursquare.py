@@ -3,8 +3,7 @@
 from dotenv import load_dotenv
 
 from planner.models.geography import Coordinates
-from planner.models.places import PlaceSearchRequest
-from planner.tools.foursquare import FoursquareApiClient
+from planner.tools.foursquare import FoursquareApiClient, PlaceSearchRequest
 
 if __name__ == '__main__':
     load_dotenv()

@@ -1,9 +1,10 @@
 ﻿import logging
 from datetime import timedelta, datetime, time, date
-from typing import NamedTuple, cast
+from typing import cast
 
 from langchain_core.language_models import BaseLanguageModel
 from langchain_core.runnables import Runnable
+from pydantic import BaseModel, Field
 
 from planner.agents.itinerary.activities import ItineraryActivityFactory
 from planner.agents.itinerary.spherical_distance import haversine_distance
@@ -13,10 +14,9 @@ from planner.models.places import Place, Establishment, Priority, Landmark, Even
 from planner.models.trip import TripRequest
 
 
-class TravelSegmentOptions(NamedTuple):
-    average_public_transport_fare: float = 2.5
-    base_taxi_fare: float = 1.5
-
+class TravelSegmentOptions(BaseModel):
+    average_public_transport_fare: float = Field(default=2.5)
+    base_taxi_fare: float = Field(default=1.5)
 
 class ScheduleBuilder:
     def __init__(self, llm: BaseLanguageModel):
@@ -172,7 +172,7 @@ class ScheduleBuilder:
         Convert all currencies to EUR.
         """
 
-        self._logger.info("Searching for public transport fares")
+        self._logger.info("🚌🚇 Searching for public transport fares")
 
         response = self.travel_segment_llm.invoke(input=prompt)
         return response
@@ -199,6 +199,8 @@ class ScheduleBuilder:
         """Calculate travel between two activities"""
 
         distance_km = haversine_distance(from_activity.coordinates, to_activity.coordinates)
+        
+        
 
         if distance_km <= 0.5:
             transport_mode = TransportMode.WALKING

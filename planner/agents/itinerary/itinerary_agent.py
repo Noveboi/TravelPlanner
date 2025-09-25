@@ -188,14 +188,14 @@ class ItineraryBuilderAgent(BaseAgent):
         self._logger.info('🗺️📌 Routing and optimizing activity order')
 
         for day_itinerary in state.daily_itineraries:
-            activities_with_coords = [
+            activities_with_coordinates = [
                 a for a in day_itinerary.activities if a.coordinates and a.activity_type != ActivityType.ACCOMMODATION
             ]
 
-            if len(activities_with_coords) <= 2:
+            if len(activities_with_coordinates) <= 2:
                 continue
 
-            optimized_activities = optimize_activity_order(activities_with_coords)
+            optimized_activities = optimize_activity_order(activities_with_coordinates, state.selected_places)
 
             # Replace the activities in the day
             other_activities = [
