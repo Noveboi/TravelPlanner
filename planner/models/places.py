@@ -110,11 +110,11 @@ class EstablishmentReport(BaseModel):
 class AccommodationReport(BaseModel):
     report: List[Accommodation] = Field(description='A list of recommended accommodations in the area.')
 
-class DestinationReport:
+class DestinationReport(BaseModel):
     """
     The full report for the destination, containing all the crucial places for the trip.
     """
-    landmarks: LandmarksReport
-    establishments: EstablishmentReport
-    events: EventsReport
-    accommodations: AccommodationReport
+    landmarks: LandmarksReport = Field()
+    establishments: EstablishmentReport = Field()
+    events: EventsReport = Field()
+    accommodations: AccommodationReport = Field()
