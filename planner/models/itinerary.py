@@ -74,7 +74,7 @@ class DayItinerary(BaseModel):
     """
     Represents one day of the trip
     """
-    date: date = Field(description="The date for this day")
+    day_date: date = Field(description="The date for this day")
     day_number: int = Field(description="Day number of the trip (1, 2, 3...)")
     theme: Optional[str] = Field(
         description="Optional theme for the day (e.g., 'Historic City Center')",

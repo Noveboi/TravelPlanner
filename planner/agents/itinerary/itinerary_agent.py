@@ -11,16 +11,11 @@ from planner.agents.itinerary.activities import optimize_activity_order
 from planner.agents.itinerary.budget import validate_budget, BudgetTracker, create_budget_breakdown
 from planner.agents.itinerary.day_itinerary_builder import ScheduleBuilder
 from planner.agents.itinerary.place_score import filter_places_by_criteria
+from planner.agents.itinerary.themes import DailyThemes, generate_daily_themes
 from planner.models.itinerary import DayItinerary, TripItinerary, ItineraryActivity, ActivityType
 from planner.models.places import DestinationReport, Place, Accommodation, BookingType
 from planner.models.trip import TripRequest
 
-
-class DailyThemes(BaseModel):
-    list: List[str] = Field(description="A list containing a theme for each day of the trip")
-
-    def add_additional_themes_if_incomplete(self, required_num: int) -> None:
-        self.list.extend([f"Exploration Day {i + 1}" for i in range(len(list), required_num)])
 
 
 class ItineraryAgentInput(BaseModel):
@@ -65,9 +60,9 @@ class ItineraryState(BaseModel):
 
 class ItineraryBuilderAgent(BaseAgent):
     def __init__(self, llm: BaseLanguageModel):
-        super().__init__(name='itinerary_builder', llm=llm)
-        self.theme_llm = llm.with_structured_output(schema=DailyThemes)
+        super().__init__(name='itinerary_builder')
         self.workflow = self._create_workflow().compile()
+        self._llm = llm
 
     def invoke(self, request: TripRequest, destination_report: DestinationReport) -> TripItinerary:
         initial_state = ItineraryState(
@@ -141,46 +136,9 @@ class ItineraryBuilderAgent(BaseAgent):
     def _plan_daily_themes(self, state: ItineraryState) -> ItineraryState:
         """Plan themes for each day based on interests and selected places"""
         self._logger.info("❓ Generate themes for each day")
-
-        trip_request = state.trip_request
-        selected_places = state.selected_places
-
-        # Use LLM to generate logical daily themes
-        themes_prompt = f"""
-        Plan {trip_request.total_days} daily themes for a trip to {trip_request.destination}.
         
-        Trip details:
-        {trip_request.format_for_llm()}
-        
-        Available places: {len(selected_places)} locations
-        
-        Create logical themes that:
-        1. Group related activities/areas together
-        2. Consider travel logistics (don't zigzag across the city)
-        3. Balance must-see attractions with interests
-        4. Account for opening hours and booking requirements
-        
-        Return only a list of theme names, one per day.
-        """
-
-        # This would use your LLM to generate themes
-        daily_themes = self._generate_themes_with_llm(themes_prompt, trip_request.total_days)
-
-        state.daily_themes = daily_themes
+        state.daily_themes = generate_daily_themes(self._llm, state.trip_request, state.selected_places)
         return state
-
-    def _generate_themes_with_llm(self, prompt: str, total_days: int) -> DailyThemes:
-
-        try:
-            response: DailyThemes = self.theme_llm.invoke(input=prompt)
-            response.add_additional_themes_if_incomplete(required_num=total_days)
-            return response
-        except Exception:
-            fallback_themes = [
-                "Historic City Center", "Museums & Culture", "Local Neighborhoods",
-                "Nature & Parks", "Food & Markets", "Hidden Gems", "Relaxation Day"
-            ]
-            return DailyThemes(list=(fallback_themes * ((total_days // len(fallback_themes)) + 1))[:total_days])
 
     def _allocate_accommodation(self, state: ItineraryState) -> ItineraryState:
         self._logger.info("🏨 Generating accommodation activities")

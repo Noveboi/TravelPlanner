@@ -6,8 +6,8 @@ from langchain_core.language_models import BaseLanguageModel
 from langchain_core.runnables import Runnable
 
 from planner.agents.itinerary.activities import ItineraryActivityFactory
-from planner.agents.itinerary.agent import DailyThemes
 from planner.agents.itinerary.spherical_distance import haversine_distance
+from planner.agents.itinerary.themes import DailyThemes
 from planner.models.itinerary import DayItinerary, ActivityType, ItineraryActivity, TransportMode, TravelSegment
 from planner.models.places import Place, Establishment, Priority, Landmark, Event
 from planner.models.trip import TripRequest
@@ -44,7 +44,7 @@ class ScheduleBuilder:
             total_travel_cost: float = sum(t.total_cost for t in travel_segments)
 
             day_itinerary = DayItinerary(
-                date=current_date,
+                day_date=current_date,
                 day_number=day_num,
                 theme=theme,
                 activities=activities,
