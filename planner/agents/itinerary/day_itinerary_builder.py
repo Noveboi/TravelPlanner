@@ -17,11 +17,13 @@ class TravelSegmentOptions(NamedTuple):
     average_public_transport_fare: float = 2.5
     base_taxi_fare: float = 1.5
 
+
 class ScheduleBuilder:
     def __init__(self, llm: BaseLanguageModel):
-        self.travel_segment_llm: Runnable[str, TravelSegmentOptions] = llm.with_structured_output(schema=TravelSegmentOptions)
+        self.travel_segment_llm: Runnable[str, TravelSegmentOptions] = llm.with_structured_output(
+            schema=TravelSegmentOptions)
         self._logger = logging.getLogger(name='day_itinerary_builder')
-    
+
     def build(self, trip_request: TripRequest, places: list[Place], themes: DailyThemes) -> list[DayItinerary]:
         """
         Constructs an itinerary for each day of the trip 
@@ -32,12 +34,12 @@ class ScheduleBuilder:
         daily_itineraries: list[DayItinerary] = []
         current_date = trip_request.start_date
         options = self._get_travel_segment_options()
-        
+
         for day_num, theme in enumerate(themes.list, 1):
             day_places = self._assign_places_to_day(places, theme)
             activities = self._build_day_activities(day_places, current_date)
             travel_segments = self.calculate_travel_segments(activities, options)
-            
+
             total_activity_cost: float = sum(a.estimated_cost for a in activities)
             total_travel_cost: float = sum(t.total_cost for t in travel_segments)
 
@@ -53,7 +55,7 @@ class ScheduleBuilder:
 
             daily_itineraries.append(day_itinerary)
             current_date += timedelta(days=1)
-        
+
         return daily_itineraries
 
     def _assign_places_to_day(self, places: list[Place], theme: str) -> list[Place]:
@@ -61,10 +63,10 @@ class ScheduleBuilder:
         theme_lower = theme.lower()
         day_places = [p for p in places if self._match_specific_theme(p, theme_lower)]
 
-        if not day_places: # Take some places anyway
-            day_places = places[:8]  
+        if not day_places:  # Take some places anyway
+            day_places = places[:8]
 
-        # Limit places per day based on priority
+            # Limit places per day based on priority
         must_see = [p for p in day_places if p.priority == Priority.ESSENTIAL]
         should_see = [p for p in day_places if p.priority == Priority.HIGH]
         nice_to_see = [p for p in day_places if p.priority == Priority.MEDIUM]
@@ -97,14 +99,14 @@ class ScheduleBuilder:
 
         # Lunchtime (12 PM-2 PM)
         lunch_places = [e for e in establishments if 'restaurant' in e.establishment_type.lower()]
-        
+
         if lunch_places:
             target_place = lunch_places[0]
             date_and_time = datetime.combine(current_date, time(12, 30))
-            
+
             lunch_activity = ItineraryActivityFactory.from_place(target_place, date_and_time)
             lunch_activity.name = f"Lunch at {target_place.name}"
-            
+
             activities.append(lunch_activity)
             current_time = lunch_activity.end_time + timedelta(minutes=15)
 
@@ -123,21 +125,22 @@ class ScheduleBuilder:
             activities.append(event_activity)
 
         # Evening meal (7 PM)
-        dinner_places = [e for e in establishments if 'restaurant' in e.establishment_type.lower() and e not in [lunch_places[0]] if lunch_places]
-        
+        dinner_places = [e for e in establishments if
+                         'restaurant' in e.establishment_type.lower() and e not in [lunch_places[0]] if lunch_places]
+
         if dinner_places:
             date_and_time = datetime.combine(current_date, time(19, 0))
             dinner_place = dinner_places[0]
-            
+
             dinner_activity = ItineraryActivityFactory.from_place(dinner_place, date_and_time)
             dinner_activity.name = f"Dinner at {dinner_place.name}"
-            
+
             activities.append(dinner_activity)
 
         activities.sort(key=lambda x: x.start_time)
 
         return activities
-    
+
     @staticmethod
     def _match_specific_theme(place: Place, theme: str) -> bool:
         """
@@ -148,18 +151,21 @@ class ScheduleBuilder:
             raise ValueError('Make theme lower-case before calling this function.')
 
         place_text = f"{place.name} {place.reason_to_go}".lower()
-        
+
         match theme:
             case 'historic':
-                return any(word in place_text for word in ['historic', 'old', 'ancient', 'cathedral', 'palace', 'monument'])
+                return any(
+                    word in place_text for word in ['historic', 'old', 'ancient', 'cathedral', 'palace', 'monument'])
             case 'museum' | 'culture':
                 return any(word in place_text for word in ['museum', 'gallery', 'art', 'cultural', 'exhibition'])
             case 'food' | 'market':
-                return isinstance(place, Establishment) or any(word in place_text for word in ['market', 'food', 'restaurant'])
+                return isinstance(place, Establishment) or any(
+                    word in place_text for word in ['market', 'food', 'restaurant'])
             case 'nature' | 'park':
                 return any(word in place_text for word in ['park', 'garden', 'nature', 'outdoor', 'beach', 'mountain'])
             case 'neighborhood' | 'neighbourhood' | 'local':
-                return any(word in place_text for word in ['neighborhood', 'neighbourhood', 'local', 'district', 'quarter'])
+                return any(
+                    word in place_text for word in ['neighborhood', 'neighbourhood', 'local', 'district', 'quarter'])
             case _:
                 return True
 
@@ -176,8 +182,9 @@ class ScheduleBuilder:
 
         response = self.travel_segment_llm.invoke(input=prompt)
         return response
-    
-    def calculate_travel_segments(self, activities: list[ItineraryActivity], options: TravelSegmentOptions) -> list[TravelSegment]:
+
+    def calculate_travel_segments(self, activities: list[ItineraryActivity], options: TravelSegmentOptions) -> list[
+        TravelSegment]:
         travel_segments: list[TravelSegment] = []
 
         for i in range(len(activities) - 1):
@@ -187,37 +194,37 @@ class ScheduleBuilder:
             if current_activity.coordinates and next_activity.coordinates:
                 segment = self.calculate_travel_segment(current_activity, next_activity, options)
                 travel_segments.append(segment)
-        
+
         return travel_segments
-    
+
     @staticmethod
     def calculate_travel_segment(
-        from_activity: ItineraryActivity,
-        to_activity: ItineraryActivity,
-        options: TravelSegmentOptions
+            from_activity: ItineraryActivity,
+            to_activity: ItineraryActivity,
+            options: TravelSegmentOptions
     ) -> TravelSegment:
         """Calculate travel between two activities"""
-    
+
         distance_km = haversine_distance(from_activity.coordinates, to_activity.coordinates)
-    
+
         if distance_km <= 0.5:
             transport_mode = TransportMode.WALKING
             duration_minutes = max(5, int(distance_km * 12))  # 12 min per km walking
             cost = 0.0
             instructions = f"Walk {int(distance_km * 1000)}m to {to_activity.name} ({duration_minutes} mins)"
-            
+
         elif distance_km <= 3:
             transport_mode = TransportMode.PUBLIC_TRANSPORT
             duration_minutes = max(10, int(distance_km * 8))  # 8 min per km public transport
             cost = options.average_public_transport_fare  # Average public transport fare
             instructions = f"Take public transport to {to_activity.name} ({duration_minutes} mins, €{cost:.2f})"
-            
+
         else:
             transport_mode = TransportMode.TAXI
             duration_minutes = max(15, int(distance_km * 5))  # 5 min per km by car
             cost = options.base_taxi_fare + (distance_km * 1.20)  # Base fare + per km
             instructions = f"Take taxi to {to_activity.name} ({duration_minutes} mins, ~€{cost:.2f})"
-    
+
         return TravelSegment(
             from_activity_id=from_activity.id,
             to_activity_id=to_activity.id,

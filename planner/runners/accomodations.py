@@ -5,7 +5,7 @@ from planner.tools.foursquare import FoursquareApiClient
 if __name__ == '__main__':
     fsq_client = FoursquareApiClient()
     agent = AccommodationScoutAgent(llm_with_tools, fsq_client)
-    
+
     report = agent.invoke(example_request)
 
     print(report.model_dump_json(indent=2))

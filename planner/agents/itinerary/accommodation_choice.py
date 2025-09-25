@@ -14,7 +14,7 @@ def select_best_accommodation(accommodations: List[Accommodation], trip_request:
     # Filter by budget
     affordable = [acc for acc in accommodations if min(acc.price_options) <= budget_per_night_per_person * 1.2]
 
-    if not affordable: # If nothing is affordable, pick the cheapest
+    if not affordable:  # If nothing is affordable, pick the cheapest
         return min(accommodations, key=lambda x: min(x.price_options))
 
     scored = []
@@ -25,10 +25,10 @@ def select_best_accommodation(accommodations: List[Accommodation], trip_request:
         priority_weights = {
             Priority.ESSENTIAL: 3,
             Priority.HIGH: 2,
-            Priority.MEDIUM: 1, 
+            Priority.MEDIUM: 1,
             Priority.LOW: 0
         }
-        
+
         score += priority_weights[acc.priority]
 
         # cheaper is better

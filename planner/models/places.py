@@ -11,16 +11,19 @@ from .geography import Coordinates
 class PlaceCategory(str, Enum):
     HOTEL = "Hotel"
 
+
 class BookingType(str, Enum):
     REQUIRED = "Required"
     RECOMMENDED = "Recommended"
     NONE = "None"
+
 
 class Priority(str, Enum):
     ESSENTIAL = "Essential"
     HIGH = "High"
     MEDIUM = "Medium"
     LOW = "Low"
+
 
 class Place(BaseModel):
     """
@@ -66,7 +69,7 @@ class Place(BaseModel):
         ],
         default={}
     )
-    
+
 
 class Establishment(Place):
     """
@@ -80,11 +83,13 @@ class Establishment(Place):
         examples=['Restaurant', 'Cafe', 'Bar', 'Pub', 'Tavern', 'Canteen']
     )
 
-class Landmark(Place): 
+
+class Landmark(Place):
     """
     Describes a place that is a landmark, like a historical monument or a statue.  
     """
     pass
+
 
 class Event(Place):
     """
@@ -93,23 +98,29 @@ class Event(Place):
     date_and_time: datetime = Field(description="The date and time of the event")
     price_options: List[float] = Field(description="A list of available prices, in EUR")
 
+
 class Accommodation(Place):
     """
     Describes a place that is an accommodation, like a hotel or a bnb. 
     """
     price_options: List[float] = Field(description="A list of available prices, in EUR")
 
+
 class EventsReport(BaseModel):
     report: List[Event] = Field(description="A list of notable events taking place at the time of the trip.")
 
+
 class LandmarksReport(BaseModel):
     report: List[Landmark] = Field(description="A list of the top landmarks for the destination")
-    
+
+
 class EstablishmentReport(BaseModel):
     report: List[Establishment] = Field(description="A list for recommended places to go eat or drink.")
-    
+
+
 class AccommodationReport(BaseModel):
     report: List[Accommodation] = Field(description='A list of recommended accommodations in the area.')
+
 
 class DestinationReport(BaseModel):
     """

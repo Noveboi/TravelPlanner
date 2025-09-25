@@ -17,6 +17,7 @@ def estimate_place_cost(place: Place) -> float:
     # Assume no entrance fees for simplicity
     return 0
 
+
 def filter_places_by_criteria(places: List[Place], trip_request: TripRequest) -> List[Place]:
     """Filter and score places based on trip criteria"""
     scored_places: list[tuple[Place, float]] = []
@@ -28,7 +29,7 @@ def filter_places_by_criteria(places: List[Place], trip_request: TripRequest) ->
     # Sort by score descending
     scored_places.sort(key=lambda x: x[1], reverse=True)
 
-    max_total_activities = trip_request.total_days * 6 # 6 activities per day MAX
+    max_total_activities = trip_request.total_days * 6  # 6 activities per day MAX
 
     # Take top-scored places within limits
     selected = []
@@ -37,9 +38,9 @@ def filter_places_by_criteria(places: List[Place], trip_request: TripRequest) ->
 
     for place, score in scored_places:
         estimated_cost = estimate_place_cost(place)
-        
+
         # Check if we can afford it and have space
-        if len(selected) < max_total_activities and total_estimated_cost + estimated_cost <= budget_per_person * 0.8: 
+        if len(selected) < max_total_activities and total_estimated_cost + estimated_cost <= budget_per_person * 0.8:
             selected.append(place)
             total_estimated_cost += estimated_cost
 
@@ -48,6 +49,7 @@ def filter_places_by_criteria(places: List[Place], trip_request: TripRequest) ->
             selected.append(place)
 
     return selected
+
 
 def calculate_place_score(place: Place, trip_request: TripRequest) -> float:
     """Calculate the relevance score for a place based on the initial trip request"""
@@ -60,7 +62,7 @@ def calculate_place_score(place: Place, trip_request: TripRequest) -> float:
         Priority.MEDIUM: 4.0,
         Priority.LOW: 1.0
     }
-    
+
     score += priority_weights[place.priority]
 
     # Interest matching
@@ -81,4 +83,3 @@ def calculate_place_score(place: Place, trip_request: TripRequest) -> float:
             score += 1.5
 
     return score
-

@@ -43,6 +43,7 @@ class ItineraryActivityFactory:
             notes=notes
         )
 
+
 def optimize_activity_order(activities: list[ItineraryActivity]) -> list[ItineraryActivity]:
     """Optimize the order of activities to minimize travel time using a nearest neighbor algorithm"""
     if len(activities) <= 2:

@@ -40,7 +40,7 @@ class TripRequest(BaseModel):
     @property
     def total_nights(self) -> int:
         return (self.end_date - self.start_date).days
-    
+
     @property
     def total_days(self) -> int:
         return self.total_nights + 1

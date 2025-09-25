@@ -81,11 +81,11 @@ class ItineraryBuilderAgent(BaseAgent):
             budget_tracker=None,
             errors=[]
         )
-        
+
         final_state: ItineraryState = self.workflow.invoke(
             input=initial_state
         )
-        
+
         return final_state.final_itinerary
 
     def _create_workflow(self) -> StateGraph[ItineraryState, Any, ItineraryAgentInput, Any]:
@@ -119,7 +119,7 @@ class ItineraryBuilderAgent(BaseAgent):
             }
         )
          .set_finish_point('finalize_itinerary'))
-        
+
         return workflow
 
     def _filter_and_prioritize_places(self, state: ItineraryState):
@@ -248,17 +248,17 @@ class ItineraryBuilderAgent(BaseAgent):
 
     def _validate_budget_constraints(self, state: ItineraryState) -> ItineraryState:
         self._logger.info("💵 Validating budget constraints")
-        
-        budget_tracker = validate_budget(state.trip_request, state.daily_itineraries)    
+
+        budget_tracker = validate_budget(state.trip_request, state.daily_itineraries)
         state.budget_tracker = budget_tracker
         return state
 
     def _finalize_itinerary(self, state: ItineraryState) -> ItineraryState:
         """Create the final itinerary object"""
         self._logger.info('Creating the final itinerary')
-        
+
         trip_request = state.trip_request
-    
+
         state.final_itinerary = TripItinerary(
             destination=trip_request.destination,
             start_date=trip_request.start_date,

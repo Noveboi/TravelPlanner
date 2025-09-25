@@ -32,6 +32,7 @@ class AccommodationScoutAgent(BaseAgent):
     """
     Researches hotels and places of accommodation for a given destination and curates them based on the user's travel profile.
     """
+
     def __init__(self, llm: BaseLanguageModel, client: FoursquareApiClient):
         super().__init__(name='accommodation_scout')
         self._llm = llm

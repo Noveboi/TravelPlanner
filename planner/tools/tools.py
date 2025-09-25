@@ -13,5 +13,7 @@ def get_available_tools() -> list[BaseTool]:
         TavilySearch(max_results=10)
     ]
 
-def bind_necessary_tools(llm: BaseChatModel) -> Runnable[PromptValue | str | Sequence[BaseMessage | list[str] | tuple[str, str] | str | dict[str, Any]], BaseMessage]:
+
+def bind_necessary_tools(llm: BaseChatModel) -> Runnable[
+    PromptValue | str | Sequence[BaseMessage | list[str] | tuple[str, str] | str | dict[str, Any]], BaseMessage]:
     return llm.bind_tools(get_available_tools())
