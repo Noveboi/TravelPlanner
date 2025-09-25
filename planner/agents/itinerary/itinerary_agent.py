@@ -199,7 +199,7 @@ class ItineraryBuilderAgent(BaseAgent):
             daily_itineraries=state.daily_itineraries,
             accommodation=require(state.accommodation),
             total_estimated_cost=require(state.budget_tracker).total_estimated_cost,
-            budget_breakdown=create_budget_breakdown(state.daily_itineraries),
+            budget_breakdown=create_budget_breakdown(state),
         )
 
         return state

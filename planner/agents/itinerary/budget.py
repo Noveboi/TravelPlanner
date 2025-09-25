@@ -1,5 +1,7 @@
 ﻿from pydantic import BaseModel, Field
 
+from planner.agents.itinerary.itinerary_agent import ItineraryState
+from planner.agents.null_checks import require
 from planner.models.itinerary import DayItinerary, ActivityType
 from planner.models.trip import TripRequest
 
@@ -23,11 +25,18 @@ def validate_budget(request: TripRequest, itineraries: list[DayItinerary]) -> Bu
     )
 
 
-def create_budget_breakdown(daily_itineraries: list[DayItinerary]) -> dict[str, float]:
+def create_budget_breakdown(state: ItineraryState) -> dict[str, float]:
     """Create a breakdown of costs by category"""
 
+    accommodation = require(state.accommodation)
+    daily_itineraries = require(state.daily_itineraries)
+    num_people = state.trip_request.travelers
+
+    # Hotels usually adjust price for the number of guests
+    accommodation_cost = min(accommodation.price_options) * len(daily_itineraries) * num_people
+
     breakdown = {
-        "accommodation": 0.0,
+        "accommodation": accommodation_cost,
         "dining": 0.0,
         "attractions": 0.0,
         "transportation": 0.0,
@@ -37,9 +46,9 @@ def create_budget_breakdown(daily_itineraries: list[DayItinerary]) -> dict[str, 
     for day_itinerary in daily_itineraries:
         for activity in day_itinerary.activities:
             if activity.activity_type == ActivityType.DINING:
-                breakdown["dining"] += activity.estimated_cost
+                breakdown["dining"] += activity.estimated_cost * num_people
             elif activity.activity_type == ActivityType.EVENT:
-                breakdown["events"] += activity.estimated_cost
+                breakdown["events"] += activity.estimated_cost * num_people
             else:
                 breakdown["attractions"] += activity.estimated_cost
 
