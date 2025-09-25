@@ -12,7 +12,8 @@ class EventScoutAgent(BaseAgent):
     """
 
     def __init__(self, llm: BaseLanguageModel):
-        super().__init__('event_scout', llm)
+        super().__init__('event_scout')
+        self._llm = llm
         self._structured_llm = llm.with_structured_output(schema=EventsReport)
 
     def invoke(self, request: TripRequest) -> EventsReport:

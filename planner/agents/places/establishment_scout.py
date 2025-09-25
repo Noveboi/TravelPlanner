@@ -12,7 +12,8 @@ class EstablishmentScoutAgent(BaseAgent):
     """
 
     def __init__(self, llm: BaseLanguageModel):
-        super().__init__('establishment_scout', llm)
+        super().__init__('establishment_scout')
+        self._llm = llm
         self._structured_llm = llm.with_structured_output(schema=EstablishmentReport)
 
     def invoke(self, request: TripRequest) -> EstablishmentReport:
