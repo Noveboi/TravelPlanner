@@ -4,12 +4,12 @@ from planner.models.places import Accommodation, Priority
 from planner.models.trip import TripRequest
 
 
-def select_best_accommodation(accommodations: List[Accommodation], trip_request: TripRequest) -> Accommodation:
+def select_best_accommodation(accommodations: List[Accommodation], req: TripRequest) -> Accommodation:
     """Select the best accommodation based on criteria"""
     if not accommodations:
         raise ValueError("No accommodations available")
 
-    budget_per_night_per_person = trip_request.budget / trip_request.travelers / trip_request.total_nights
+    budget_per_night_per_person = req.budget / req.travelers / req.total_nights
 
     # Filter by budget
     affordable = [acc for acc in accommodations if min(acc.price_options) <= budget_per_night_per_person * 1.2]

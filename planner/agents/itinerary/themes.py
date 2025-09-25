@@ -47,4 +47,4 @@ def generate_daily_themes(llm: BaseLanguageModel, request: TripRequest, places: 
         Return only a list of theme names, one per day.
         """
 
-    return _generate_themes_with_llm(themes_prompt, trip_request.total_days)
+    return _generate_themes_with_llm(themes_prompt, request.total_days)

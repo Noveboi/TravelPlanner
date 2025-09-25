@@ -29,21 +29,24 @@ class ItineraryAgentInput(BaseModel):
 
 class ItineraryState(BaseModel):
     """State object passed between nodes in the itinerary building workflow"""
-    trip_request: TripRequest = Field(
+    trip_request: TripRequest  = Field(
         description="The user's initial input."
     )
     destination_report: DestinationReport = Field(
         description="Contains detailed place information on accommodations, establishments, events and landmarks"
     )
-    selected_places: List[Place] = Field(
-        description="A list of filtered and prioritized places, curated algorithmically"
+    selected_places: List[Place] | None = Field(
+        description="A list of filtered and prioritized places, curated algorithmically",
+        default=None
     )
-    daily_themes: DailyThemes = Field()
+    daily_themes: DailyThemes | None = Field(default=None)
     accommodation_activities: List[ItineraryActivity] = Field(
-        description="Activities for accommodation for each night."
+        description="Activities for accommodation for each night.",
+        default_factory=list
     )
     daily_itineraries: List[DayItinerary] = Field(
-        description="An itinerary for each day of the trip"
+        description="An itinerary for each day of the trip",
+        default_factory=list
     )
     final_itinerary: Optional[TripItinerary] = Field(
         description="The final itinerary containing all the relevant information",
@@ -54,7 +57,8 @@ class ItineraryState(BaseModel):
         default=None
     )
     errors: List[str] = Field(
-        description="A list of errors for unexpected scenarios"
+        description="A list of errors for unexpected scenarios",
+        default_factory=list
     )
 
 
@@ -117,7 +121,7 @@ class ItineraryBuilderAgent(BaseAgent):
 
         return workflow
 
-    def _filter_and_prioritize_places(self, state: ItineraryState):
+    def _filter_and_prioritize_places(self, state: ItineraryState) -> ItineraryState:
         self._logger.info("🔎 Filtering and prioritizing places")
 
         trip_request = state.trip_request

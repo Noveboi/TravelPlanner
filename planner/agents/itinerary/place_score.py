@@ -11,7 +11,7 @@ def estimate_place_cost(place: Place) -> float:
     :return: The estimated price 
     """
     # Assume the cheapest scenario always.
-    if place.price_options:
+    if hasattr(place, 'price_options'):
         return min(place.price_options)
 
     # Assume no entrance fees for simplicity
