@@ -2,8 +2,7 @@
 from datetime import timedelta, datetime, time, date
 from typing import cast
 
-from langchain_core.language_models import BaseLanguageModel
-from langchain_core.runnables import Runnable
+from langchain_core.language_models import BaseChatModel
 from pydantic import BaseModel, Field
 
 from planner.agents.itinerary.activities import ItineraryActivityFactory
@@ -20,10 +19,9 @@ class TravelSegmentOptions(BaseModel):
 
 
 class ScheduleBuilder:
-    def __init__(self, llm: BaseLanguageModel):
-        self.travel_segment_llm: Runnable[str, TravelSegmentOptions] = llm.with_structured_output(
-            schema=TravelSegmentOptions)
+    def __init__(self, llm: BaseChatModel):
         self._logger = logging.getLogger(name='day_itinerary_builder')
+        self._llm = llm
 
     def build(self, trip_request: TripRequest, places: list[Place], themes: DailyThemes) -> list[DayItinerary]:
         """
@@ -179,7 +177,10 @@ class ScheduleBuilder:
 
         self._logger.info("🚌🚇 Searching for public transport fares")
 
-        response = self.travel_segment_llm.invoke(input=prompt)
+        response = self._llm.with_structured_output(schema=TravelSegmentOptions).invoke(input=prompt)
+        
+        assert isinstance(response, TravelSegmentOptions)
+        
         return response
 
     def calculate_travel_segments(self, activities: list[ItineraryActivity], options: TravelSegmentOptions) -> list[

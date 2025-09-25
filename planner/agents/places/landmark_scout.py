@@ -1,4 +1,4 @@
-﻿from langchain_core.language_models import BaseLanguageModel, LanguageModelInput
+﻿from langchain_core.language_models import LanguageModelInput, BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from planner.models.places import LandmarksReport
@@ -11,7 +11,7 @@ class LandmarkScoutAgent(BaseAgent):
     Researches landmarks for the user's destination.
     """
 
-    def __init__(self, llm: BaseLanguageModel):
+    def __init__(self, llm: BaseChatModel):
         super().__init__('landmark_scout')
         self._llm = llm.with_structured_output(schema=LandmarksReport)
 
@@ -19,7 +19,11 @@ class LandmarkScoutAgent(BaseAgent):
         self._logger.info('🔎 Researching landmarks...')
 
         prompt = self._create_prompt(request)
-        return self._llm.invoke(prompt)
+        response = self._llm.invoke(prompt)
+        
+        assert isinstance(response, LandmarksReport)
+        
+        return response
 
     @staticmethod
     def _create_prompt(req: TripRequest) -> LanguageModelInput:

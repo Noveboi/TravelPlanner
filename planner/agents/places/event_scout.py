@@ -1,9 +1,10 @@
-﻿from langchain_core.language_models import BaseLanguageModel, LanguageModelInput
+﻿from langchain_core.language_models import LanguageModelInput, BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from planner.models.places import EventsReport
 from planner.models.trip import TripRequest
 from ..base import BaseAgent
+from ...tools.tools import get_available_tools
 
 
 class EventScoutAgent(BaseAgent):
@@ -11,9 +12,9 @@ class EventScoutAgent(BaseAgent):
     Researches information on events (such as concerts and festivals) taking place during the duration of the user's stay. 
     """
 
-    def __init__(self, llm: BaseLanguageModel):
+    def __init__(self, llm: BaseChatModel):
         super().__init__('event_scout')
-        self._llm = llm
+        self._llm = llm.bind_tools(get_available_tools())
         self._structured_llm = llm.with_structured_output(schema=EventsReport)
 
     def invoke(self, request: TripRequest) -> EventsReport:
@@ -22,8 +23,14 @@ class EventScoutAgent(BaseAgent):
         search_prompt = self._create_search_prompt(request)
         search_result = self._llm.invoke(search_prompt)
 
+        assert isinstance(search_result.content, str)
+
         structure_prompt = self._create_structure_prompt(request, search_result.content)
-        return self._structured_llm.invoke(structure_prompt)
+        response = self._structured_llm.invoke(structure_prompt)
+        
+        assert isinstance(response, EventsReport)
+        
+        return response
 
     @staticmethod
     def _create_search_prompt(req: TripRequest) -> LanguageModelInput:

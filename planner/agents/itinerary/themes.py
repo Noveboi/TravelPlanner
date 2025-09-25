@@ -1,4 +1,4 @@
-﻿from typing import List
+﻿from typing import List, cast
 
 from langchain_core.language_models import BaseLanguageModel
 from pydantic import BaseModel, Field
@@ -11,7 +11,7 @@ class DailyThemes(BaseModel):
     list: List[str] = Field(description="A list containing a theme for each day of the trip")
 
     def add_additional_themes_if_incomplete(self, required_num: int) -> None:
-        self.list.extend([f"Exploration Day {i + 1}" for i in range(len(list), required_num)])
+        self.list.extend([f"Exploration Day {i + 1}" for i in range(len(self.list), required_num)])
 
 
 def generate_daily_themes(llm: BaseLanguageModel, request: TripRequest, places: list[Place]) -> DailyThemes:
@@ -19,7 +19,7 @@ def generate_daily_themes(llm: BaseLanguageModel, request: TripRequest, places: 
         theme_llm = llm.with_structured_output(schema=DailyThemes)
 
         try:
-            response: DailyThemes = theme_llm.invoke(input=prompt)
+            response = cast(DailyThemes, theme_llm.invoke(input=prompt))
             response.add_additional_themes_if_incomplete(required_num=total_days)
             return response
         except Exception:

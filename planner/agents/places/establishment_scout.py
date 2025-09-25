@@ -1,9 +1,10 @@
-﻿from langchain_core.language_models import BaseLanguageModel, LanguageModelInput
-from langchain_core.messages import SystemMessage, HumanMessage
+﻿from langchain_core.language_models import LanguageModelInput, BaseChatModel
+from langchain_core.messages import SystemMessage, HumanMessage, BaseMessage
 
 from planner.models.places import EstablishmentReport
 from planner.models.trip import TripRequest
 from ..base import BaseAgent
+from ...tools.tools import get_available_tools
 
 
 class EstablishmentScoutAgent(BaseAgent):
@@ -11,9 +12,9 @@ class EstablishmentScoutAgent(BaseAgent):
     Researches information about restaurants, cafés, bars and more...
     """
 
-    def __init__(self, llm: BaseLanguageModel):
+    def __init__(self, llm: BaseChatModel):
         super().__init__('establishment_scout')
-        self._llm = llm
+        self._llm = llm.bind_tools(get_available_tools())
         self._structured_llm = llm.with_structured_output(schema=EstablishmentReport)
 
     def invoke(self, request: TripRequest) -> EstablishmentReport:
@@ -25,7 +26,11 @@ class EstablishmentScoutAgent(BaseAgent):
 
         self._logger.info('Compiling search results into comprehensive list...')
         prompt = self._create_structured_prompt(request, search_results)
-        return self._structured_llm.invoke(prompt)
+        response = self._structured_llm.invoke(prompt)
+        
+        assert isinstance(response, EstablishmentReport)
+        
+        return response
 
     @staticmethod
     def _create_search_prompt(req: TripRequest) -> LanguageModelInput:
@@ -52,7 +57,7 @@ class EstablishmentScoutAgent(BaseAgent):
         ]
 
     @staticmethod
-    def _create_structured_prompt(req: TripRequest, search_results: str) -> LanguageModelInput:
+    def _create_structured_prompt(req: TripRequest, search_results: BaseMessage) -> LanguageModelInput:
         return [
             SystemMessage(content=f"""
             You are an expert travel agent and local {req.destination} guide. 
@@ -61,7 +66,7 @@ class EstablishmentScoutAgent(BaseAgent):
             """, ),
             HumanMessage(content=f"""
             Use the following search results to generate a comprehensive and prioritized list of establishments based in {req.destination}:
-            {search_results}
+            {search_results.content}
             
             Consider the following travel parameters when curating establishments:
             {req.format_for_llm()}

@@ -1,7 +1,6 @@
-﻿from datetime import time, datetime, timedelta
-from typing import List, Optional, Any, cast
+﻿from typing import List, Optional, Any, cast
 
-from langchain_core.language_models import BaseLanguageModel
+from langchain_core.language_models import BaseChatModel
 from langgraph.graph import StateGraph
 from pydantic import BaseModel, Field
 
@@ -12,8 +11,9 @@ from planner.agents.itinerary.budget import validate_budget, BudgetTracker, crea
 from planner.agents.itinerary.day_itinerary_builder import ScheduleBuilder
 from planner.agents.itinerary.place_score import filter_places_by_criteria
 from planner.agents.itinerary.themes import DailyThemes, generate_daily_themes
-from planner.models.itinerary import DayItinerary, TripItinerary, ItineraryActivity, ActivityType
-from planner.models.places import DestinationReport, Place, Accommodation, BookingType
+from planner.agents.null_checks import require
+from planner.models.itinerary import DayItinerary, TripItinerary
+from planner.models.places import DestinationReport, Place, Accommodation
 from planner.models.trip import TripRequest
 
 
@@ -39,9 +39,9 @@ class ItineraryState(BaseModel):
         default=None
     )
     daily_themes: DailyThemes | None = Field(default=None)
-    accommodation_activities: List[ItineraryActivity] = Field(
-        description="Activities for accommodation for each night.",
-        default_factory=list
+    accommodation: Accommodation | None = Field(
+        description="The accommodation that the traveller will reside in.",
+        default=None
     )
     daily_itineraries: List[DayItinerary] = Field(
         description="An itinerary for each day of the trip",
@@ -62,26 +62,14 @@ class ItineraryState(BaseModel):
 
 
 class ItineraryBuilderAgent(BaseAgent):
-    def __init__(self, llm: BaseLanguageModel):
+    def __init__(self, llm: BaseChatModel):
         super().__init__(name='itinerary_builder')
         self.workflow = self._create_workflow().compile()
         self._llm = llm
 
     def invoke(self, request: TripRequest, destination_report: DestinationReport) -> TripItinerary:
-        initial_state = ItineraryState(
-            trip_request=request,
-            destination_report=destination_report,
-            selected_places=[],
-            accommodation_activities=[],
-            daily_themes=DailyThemes(list=[]),
-            daily_itineraries=[],
-            final_itinerary=None,
-            budget_tracker=None,
-            errors=[]
-        )
-
         final_state = self.workflow.invoke(
-            input=initial_state
+            input=ItineraryAgentInput(trip_request=request, destination_report=destination_report)
         )
 
         return final_state['final_itinerary']
@@ -127,10 +115,10 @@ class ItineraryBuilderAgent(BaseAgent):
         destination_report = state.destination_report
 
         # Do not include accommodations
-        all_places = (
-                destination_report.landmarks.report +
-                destination_report.establishments.report +
-                destination_report.events.report
+        all_places: list[Place] = (
+            [cast(Place, x) for x in destination_report.landmarks.report] +
+            [cast(Place, x) for x in destination_report.establishments.report] +
+            [cast(Place, x) for x in destination_report.events.report]
         )
 
         state.selected_places = filter_places_by_criteria(all_places, trip_request)
@@ -139,8 +127,12 @@ class ItineraryBuilderAgent(BaseAgent):
     def _plan_daily_themes(self, state: ItineraryState) -> ItineraryState:
         """Plan themes for each day based on interests and selected places"""
         self._logger.info("❓ Generate themes for each day")
-
-        state.daily_themes = generate_daily_themes(self._llm, state.trip_request, state.selected_places)
+        
+        state.daily_themes = generate_daily_themes(
+            self._llm, 
+            state.trip_request, 
+            require(state.selected_places))
+        
         return state
 
     def _allocate_accommodation(self, state: ItineraryState) -> ItineraryState:
@@ -149,28 +141,7 @@ class ItineraryBuilderAgent(BaseAgent):
         trip_request: TripRequest = state.trip_request
         accommodations = state.destination_report.accommodations.report
 
-        selected_accommodation: Accommodation = select_best_accommodation(accommodations, trip_request)
-
-        accommodation_activities: list[ItineraryActivity] = []
-        current_date = trip_request.start_date
-
-        while current_date < trip_request.end_date:
-            activity = ItineraryActivity(
-                place_id=selected_accommodation.id,
-                activity_type=ActivityType.ACCOMMODATION,
-                name=f"Stay at {selected_accommodation.name}",
-                description="Overnight accommodation",
-                start_time=datetime.combine(current_date, time(22, 0)),
-                end_time=datetime.combine(current_date + timedelta(days=1), time(9, 0)),
-                estimated_cost=min(selected_accommodation.price_options) / trip_request.travelers,
-                coordinates=selected_accommodation.coordinates,
-                booking_required=selected_accommodation.booking_type == BookingType.REQUIRED,
-                booking_url=selected_accommodation.website
-            )
-            accommodation_activities.append(activity)
-            current_date += timedelta(days=1)
-
-        state.accommodation_activities = accommodation_activities
+        state.accommodation = select_best_accommodation(accommodations, trip_request)
         return state
 
     def _build_daily_schedules(self, state: ItineraryState) -> ItineraryState:
@@ -178,7 +149,10 @@ class ItineraryBuilderAgent(BaseAgent):
 
         schedule_builder = ScheduleBuilder(self._llm)
 
-        state.daily_itineraries = schedule_builder.build(state.trip_request, state.selected_places, state.daily_themes)
+        state.daily_itineraries = schedule_builder.build(
+            state.trip_request, 
+            require(state.selected_places), 
+            require(state.daily_themes))
 
         return state
 
@@ -187,20 +161,17 @@ class ItineraryBuilderAgent(BaseAgent):
         self._logger.info('🗺️📌 Routing and optimizing activity order')
 
         for day_itinerary in state.daily_itineraries:
-            activities_with_coordinates = [
-                a for a in day_itinerary.activities if a.coordinates and a.activity_type != ActivityType.ACCOMMODATION
-            ]
+            activities_with_coordinates = [a for a in day_itinerary.activities if a.coordinates is not None]
 
             if len(activities_with_coordinates) <= 2:
                 continue
 
-            optimized_activities = optimize_activity_order(activities_with_coordinates, state.selected_places)
+            optimized_activities = optimize_activity_order(
+                activities_with_coordinates, 
+                require(state.selected_places))
 
             # Replace the activities in the day
-            other_activities = [
-                a for a in day_itinerary.activities if
-                not a.coordinates or a.activity_type == ActivityType.ACCOMMODATION
-            ]
+            other_activities = [a for a in day_itinerary.activities if a.coordinates is None ]
 
             day_itinerary.activities = optimized_activities + other_activities
             day_itinerary.activities.sort(key=lambda x: x.start_time)
@@ -226,8 +197,8 @@ class ItineraryBuilderAgent(BaseAgent):
             end_date=trip_request.end_date,
             total_days=(trip_request.end_date - trip_request.start_date).days + 1,
             daily_itineraries=state.daily_itineraries,
-            accommodation_plan=state.accommodation_activities,
-            total_estimated_cost=state.budget_tracker.total_estimated_cost,
+            accommodation=require(state.accommodation),
+            total_estimated_cost=require(state.budget_tracker).total_estimated_cost,
             budget_breakdown=create_budget_breakdown(state.daily_itineraries),
         )
 
@@ -236,7 +207,7 @@ class ItineraryBuilderAgent(BaseAgent):
     def _should_replan(self, state: ItineraryState) -> str:
         """Decide whether to replan based on budget validation"""
 
-        if state.budget_tracker.is_over_budget:
+        if require(state.budget_tracker).is_over_budget:
             self._logger.warning('Overshot budget with current itinerary, retrying...')
             return 'replan'
         else:

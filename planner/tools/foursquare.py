@@ -1,6 +1,6 @@
 ﻿import logging
 import os
-from typing import Optional, List
+from typing import Optional, List, Any
 
 import requests
 from pydantic import BaseModel, Field
@@ -96,7 +96,7 @@ class FoursquareApiClient:
             'authorization': f'Bearer {self._bearer_token}'
         }
 
-        params = {
+        params: dict[str, Any] = {
             'll': fsq.center,
             'radius': fsq.radius,
             'exclude_all_chains': True,

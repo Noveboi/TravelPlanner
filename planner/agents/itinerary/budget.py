@@ -33,12 +33,10 @@ def create_budget_breakdown(daily_itineraries: list[DayItinerary]) -> dict[str, 
         "transportation": 0.0,
         "events": 0.0
     }
-
+    
     for day_itinerary in daily_itineraries:
         for activity in day_itinerary.activities:
-            if activity.activity_type == ActivityType.ACCOMMODATION:
-                breakdown["accommodation"] += activity.estimated_cost
-            elif activity.activity_type == ActivityType.DINING:
+            if activity.activity_type == ActivityType.DINING:
                 breakdown["dining"] += activity.estimated_cost
             elif activity.activity_type == ActivityType.EVENT:
                 breakdown["events"] += activity.estimated_cost

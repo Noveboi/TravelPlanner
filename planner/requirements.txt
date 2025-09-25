@@ -5,3 +5,5 @@ langchain-core
 langchain-openai
 langchain-tavily
 python-dotenv
+
+mypy

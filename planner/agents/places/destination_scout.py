@@ -1,4 +1,6 @@
-﻿from langchain_core.language_models import BaseLanguageModel
+﻿from typing import Any
+
+from langchain_core.language_models import BaseChatModel
 from langgraph.constants import START, END
 from langgraph.graph import StateGraph
 from pydantic import BaseModel, Field
@@ -27,7 +29,7 @@ class DestinationScoutAgent(BaseAgent):
     Agent that composes other scout agents and executes them in parallel (https://langchain-ai.github.io/langgraph/tutorials/workflows/#parallelization)
     """
 
-    def __init__(self, llm: BaseLanguageModel, client: FoursquareApiClient):
+    def __init__(self, llm: BaseChatModel, client: FoursquareApiClient):
         super().__init__(name='destination_scout')
         self._client = client
         self._llm = llm
@@ -51,8 +53,11 @@ class DestinationScoutAgent(BaseAgent):
             accommodations=final_state['accommodations']
         )
 
-    def _create_workflow(self) -> StateGraph[DestinationState]:
-        workflow: StateGraph[DestinationState] = StateGraph(state_schema=DestinationState)
+    def _create_workflow(self) -> StateGraph[DestinationState, Any, DestinationState, DestinationState]:
+        workflow = StateGraph(
+            state_schema=DestinationState, 
+            input_schema=DestinationState, 
+            output_schema=DestinationState)
 
         workflow.add_node('landmarks', self._research_landmarks)
         workflow.add_node('events', self._research_events)

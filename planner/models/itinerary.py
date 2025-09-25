@@ -6,12 +6,12 @@ from typing import List, Optional, Dict
 from pydantic import BaseModel, Field
 
 from planner.models.geography import Coordinates
+from planner.models.places import Accommodation
 
 
 class ActivityType(str, Enum):
     SIGHTSEEING = "Sightseeing"
     DINING = "Dining"
-    ACCOMMODATION = "Accommodation"
     EVENT = "Event"
     TRAVEL = "Travel"
     BREAK = "Break"
@@ -108,9 +108,7 @@ class TripItinerary(BaseModel):
     end_date: date = Field(description="Trip end date")
     total_days: int = Field(description="Total number of days")
     daily_itineraries: List[DayItinerary] = Field(description="Day-by-day breakdown")
-    accommodation_plan: List[ItineraryActivity] = Field(
-        description="Accommodation activities extracted for easy reference"
-    )
+    accommodation: Accommodation = Field()
     total_estimated_cost: float = Field(
         description="Total trip cost estimate"
     )

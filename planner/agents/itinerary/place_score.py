@@ -1,6 +1,6 @@
 ﻿from typing import List
 
-from planner.models.places import Place, Priority, Establishment
+from planner.models.places import Place, Priority, Establishment, Event
 from planner.models.trip import TripRequest, TripType
 
 
@@ -11,11 +11,14 @@ def estimate_place_cost(place: Place) -> float:
     :return: The estimated price 
     """
     # Assume the cheapest scenario always.
-    if hasattr(place, 'price_options'):
-        return min(place.price_options)
-
-    # Assume no entrance fees for simplicity
-    return 0
+    match place:
+        case Establishment(average_price=price):
+            return price
+        case Event(price_options=options):
+            return min(options)
+        case _:
+            return 0
+        
 
 
 def filter_places_by_criteria(places: List[Place], trip_request: TripRequest) -> List[Place]:
@@ -32,8 +35,8 @@ def filter_places_by_criteria(places: List[Place], trip_request: TripRequest) ->
     max_total_activities = trip_request.total_days * 6  # 6 activities per day MAX
 
     # Take top-scored places within limits
-    selected = []
-    total_estimated_cost = 0
+    selected: list[Place] = []
+    total_estimated_cost = 0.0
     budget_per_person = trip_request.budget / trip_request.travelers
 
     for place, score in scored_places:

@@ -1,13 +1,14 @@
 ﻿import operator
-from typing import Annotated
+from typing import Annotated, Any
 
-from langchain_core.language_models import BaseLanguageModel
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import create_react_agent
 from pydantic import BaseModel, Field
 
 from planner.agents.base import BaseAgent
+from planner.agents.null_checks import require
 from planner.models.geography import Coordinates
 from planner.models.places import Place, Priority, BookingType, PlaceCategory, AccommodationReport
 from planner.models.trip import TripRequest
@@ -47,14 +48,18 @@ class AccommodationScoutAgent(BaseAgent):
     Researches hotels and places of accommodation for a given destination and curates them based on the user's travel profile.
     """
 
-    def __init__(self, llm: BaseLanguageModel, client: FoursquareApiClient):
+    def __init__(self, llm: BaseChatModel, client: FoursquareApiClient):
         super().__init__(name='accommodation_scout')
-        self._llm = llm
+        self._llm = llm.bind_tools(get_available_tools())
         self._client = client
         self._workflow = self._create_workflow().compile()
 
-    def _create_workflow(self) -> StateGraph[AccommodationState]:
-        workflow = StateGraph(state_schema=AccommodationState)
+    def _create_workflow(self) -> StateGraph[AccommodationState, Any, AccommodationState, AccommodationState]:
+        workflow = StateGraph(
+            input_schema=AccommodationState,
+            state_schema=AccommodationState,
+            output_schema=AccommodationState
+        )
 
         workflow.add_node('get_destination_info', self._get_destination_information_for_search)
         workflow.add_node('find_accommodations', self._search_for_accommodations)
@@ -118,19 +123,21 @@ class AccommodationScoutAgent(BaseAgent):
 
         return response['structured_response']
 
-    def _should_expand_search(self, state: AccommodationState) -> bool:
+    @staticmethod
+    def _should_expand_search(state: AccommodationState) -> bool:
         return not state.accommodations
 
     def _search_for_accommodations(self, state: AccommodationState) -> dict[str, list[Place]]:
 
         place_search_request = PlaceSearchRequest(
-            center=state.destination_info.reasonable_center,
-            radius=state.destination_info.search_radius,
+            center=require(state.destination_info).reasonable_center,
+            radius=require(state.destination_info).search_radius,
             place_categories=[PlaceCategory.HOTEL],
             limit=35
         )
 
-        place_search_response = self._client.invoke(place_search_request)
+        place_search_response = require(self._client.invoke(place_search_request))
+        
         accommodations = [self._convert_fsq_to_place(fsq) for fsq in place_search_response.results]
 
         return {'accommodations': accommodations}
