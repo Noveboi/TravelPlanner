@@ -19,13 +19,13 @@ llm = ChatOpenAI(
 )
 
 example_request = TripRequest(
-    destination='Paris',
-    start_date=date(2026, 3, 10),
-    end_date=date(2026, 3, 17),
-    budget=3500,
+    destination='Athens',
+    start_date=date(2026, 5, 20),
+    end_date=date(2026, 5, 31),
+    budget=5_000,
     travelers=2,
     trip_type=TripType.COUPLE,
-    interests=['Explore the history of Paris', 'Taste local delicacies', 'Gardens', 'Parks']
+    interests=['Culturally important landmarks', 'Scenic beaches', 'Parks', 'Mountain hiking for one day']
 )
 
 def ensure_api_keys_exist() -> None:

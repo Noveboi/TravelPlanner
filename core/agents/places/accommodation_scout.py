@@ -9,27 +9,16 @@ from pydantic import BaseModel, Field
 
 from core.agents.base import BaseAgent
 from core.agents.null_checks import require
-from core.models.geography import Coordinates
-from core.models.places import Place, Priority, BookingType, PlaceCategory, AccommodationReport
+from core.agents.places.utils import convert_fsq_to_place, get_search_info, SearchInformation
+from core.models.places import Place, PlaceCategory, AccommodationReport
 from core.models.trip import TripRequest
-from core.tools.foursquare import FoursquareApiClient, FoursquarePlace, PlaceSearchRequest
+from core.tools.foursquare import FoursquareApiClient, PlaceSearchRequest
 from core.tools.tools import get_available_tools
-
-
-class TripDestinationInformation(BaseModel):
-    reasonable_center: Coordinates = Field(
-        description='A reasonable center for the given destination location.'
-    )
-    search_radius: int = Field(
-        description="A search radius that encompass most or all of the destination location.",
-        gt=100,
-        lt=100_000
-    )
 
 
 class AccommodationState(BaseModel):
     trip_request: TripRequest = Field(description='The initial trip request of the user')
-    destination_info: TripDestinationInformation | None = Field(
+    search_info: SearchInformation | None = Field(
         description='Technical parameters for searching accommodations in the destination area',
         default=None
     )
@@ -80,7 +69,7 @@ class AccommodationScoutAgent(BaseAgent):
         return workflow
 
     def invoke(self, request: TripRequest) -> AccommodationReport:
-        self._logger.info('🔎 Researching accommodations')
+        self._log.info('🔎 Researching accommodations')
 
         initial_state = AccommodationState(
             trip_request=request
@@ -88,13 +77,11 @@ class AccommodationScoutAgent(BaseAgent):
 
         final_state = self._workflow.invoke(input=initial_state)
         report = final_state['report']
+        
+        assert isinstance(report, AccommodationReport)
+        
+        return report
 
-        if isinstance(report, list):
-            return AccommodationReport(report=report)
-        elif isinstance(report, AccommodationReport):
-            return report
-
-        raise ValueError(f'Invalid agent output for AccommodationReport: {type(report)}')
 
     def _get_finalized_accommodation_report(self, state: AccommodationState) -> dict[str, AccommodationReport]:
         agent = create_react_agent(
@@ -103,7 +90,7 @@ class AccommodationScoutAgent(BaseAgent):
             response_format=AccommodationReport
         )
 
-        self._logger.info('🏨 Generating final accommodation report...')
+        self._log.info('🏨 Generating final accommodation report...')
 
         prompt = f"""
                 You are given a list of available accommodation options in {state.trip_request.destination} along with additional information:
@@ -120,8 +107,14 @@ class AccommodationScoutAgent(BaseAgent):
 
         # noinspection PyTypeChecker
         response = agent.invoke(input={'messages': [HumanMessage(content=prompt)]})
+        structured_response = response['structured_response']
 
-        return response['structured_response']
+        if isinstance(structured_response, list):
+            return { 'report': AccommodationReport(report=structured_response) }
+        elif isinstance(structured_response, AccommodationReport):
+            return { 'report': structured_response }
+
+        raise ValueError(f'Invalid agent output for AccommodationReport: {type(structured_response)}')
 
     @staticmethod
     def _should_expand_search(state: AccommodationState) -> bool:
@@ -130,55 +123,20 @@ class AccommodationScoutAgent(BaseAgent):
     def _search_for_accommodations(self, state: AccommodationState) -> dict[str, list[Place]]:
 
         place_search_request = PlaceSearchRequest(
-            center=require(state.destination_info).reasonable_center,
-            radius=require(state.destination_info).search_radius,
+            center=require(state.search_info).reasonable_center,
+            radius=require(state.search_info).search_radius,
             place_categories=[PlaceCategory.HOTEL],
             limit=35
         )
 
         place_search_response = require(self._client.invoke(place_search_request))
 
-        accommodations = [self._convert_fsq_to_place(fsq) for fsq in place_search_response.results]
+        accommodations = [convert_fsq_to_place(fsq) for fsq in place_search_response.results]
 
         return {'accommodations': accommodations}
 
-    @staticmethod
-    def _convert_fsq_to_place(fsq: FoursquarePlace):
-        return Place(
-            name=fsq.name,
-            coordinates=Coordinates(latitude=fsq.latitude, longitude=fsq.longitude),
-            priority=Priority.ESSENTIAL,
-            reason_to_go='',
-            website=fsq.website,
-            booking_type=BookingType.REQUIRED,
-            typical_hours_of_stay=0,
-            weather_dependent=False
-        )
+    def _get_destination_information_for_search(self, state: AccommodationState) -> dict[str, SearchInformation]:
+        info = get_search_info(state.trip_request, self._llm, self._log, state.search_info)
+        return { 'search_info': info }
 
-    def _get_destination_information_for_search(self, state: AccommodationState) -> dict[
-        str, TripDestinationInformation]:
-        agent = create_react_agent(
-            model=self._llm,
-            tools=get_available_tools(),
-            response_format=TripDestinationInformation,
-        )
 
-        minimum_radius = 5_000 if state.destination_info is None else state.destination_info.search_radius + 5_000
-
-        self._logger.info('🔎 Gathering information about the destination...')
-
-        if state.destination_info is not None:
-            self._logger.info('🗺️ Expanding search radius...')
-
-        prompt = f"""
-        You are to search for accommodations in {state.trip_request.destination}.
-        
-        Before searching, find a reasonable center (latitude, longitude) and radius (in meters) to conduct the search.
-        
-        The radius should be at minimum {minimum_radius} meters
-        """
-
-        # noinspection PyTypeChecker
-        response = agent.invoke(input={'messages': [HumanMessage(content=prompt)]})
-
-        return {'destination_info': response['structured_response']}

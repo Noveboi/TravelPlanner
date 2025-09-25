@@ -78,7 +78,7 @@ class DestinationScoutAgent(BaseAgent):
         scout = LandmarkScoutAgent(self._llm)
         result = scout.invoke(state.trip_request)
 
-        self._logger.info('✅ Finished Landmarks')
+        self._log.info('✅ Finished Landmarks')
 
         return {'landmarks': result}
 
@@ -86,15 +86,15 @@ class DestinationScoutAgent(BaseAgent):
         scout = EventScoutAgent(self._llm)
         result = scout.invoke(state.trip_request)
 
-        self._logger.info('✅ Finished Events')
+        self._log.info('✅ Finished Events')
 
         return {'events': result}
 
     def _research_establishments(self, state: DestinationState) -> dict[str, EstablishmentReport]:
-        scout = EstablishmentScoutAgent(self._llm)
+        scout = EstablishmentScoutAgent(self._llm, self._client)
         result = scout.invoke(state.trip_request)
 
-        self._logger.info('✅ Finished Establishments')
+        self._log.info('✅ Finished Establishments')
 
         return {'establishments': result}
 
@@ -102,6 +102,6 @@ class DestinationScoutAgent(BaseAgent):
         scout = AccommodationScoutAgent(self._llm, self._client)
         result = scout.invoke(state.trip_request)
 
-        self._logger.info('✅ Finished Accommodations')
+        self._log.info('✅ Finished Accommodations')
 
         return {'accommodations': result}

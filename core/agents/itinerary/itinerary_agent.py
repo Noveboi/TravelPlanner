@@ -109,7 +109,7 @@ class ItineraryBuilderAgent(BaseAgent):
         return workflow
 
     def _filter_and_prioritize_places(self, state: ItineraryState) -> ItineraryState:
-        self._logger.info("🔎 Filtering and prioritizing places")
+        self._log.info("🔎 Filtering and prioritizing places")
 
         trip_request = state.trip_request
         destination_report = state.destination_report
@@ -126,7 +126,7 @@ class ItineraryBuilderAgent(BaseAgent):
 
     def _plan_daily_themes(self, state: ItineraryState) -> ItineraryState:
         """Plan themes for each day based on interests and selected places"""
-        self._logger.info("❓ Generate themes for each day")
+        self._log.info("❓ Generate themes for each day")
 
         state.daily_themes = generate_daily_themes(
             self._llm,
@@ -136,7 +136,7 @@ class ItineraryBuilderAgent(BaseAgent):
         return state
 
     def _allocate_accommodation(self, state: ItineraryState) -> ItineraryState:
-        self._logger.info("🏨 Generating accommodation activities")
+        self._log.info("🏨 Generating accommodation activities")
 
         trip_request: TripRequest = state.trip_request
         accommodations = state.destination_report.accommodations.report
@@ -145,7 +145,7 @@ class ItineraryBuilderAgent(BaseAgent):
         return state
 
     def _build_daily_schedules(self, state: ItineraryState) -> ItineraryState:
-        self._logger.info("📆 Building daily schedules")
+        self._log.info("📆 Building daily schedules")
 
         schedule_builder = ScheduleBuilder(self._llm)
 
@@ -158,7 +158,7 @@ class ItineraryBuilderAgent(BaseAgent):
 
     def _optimize_routes(self, state: ItineraryState) -> ItineraryState:
         """Optimize the order of activities within each day for minimal travel time"""
-        self._logger.info('🗺️📌 Routing and optimizing activity order')
+        self._log.info('🗺️📌 Routing and optimizing activity order')
 
         for day_itinerary in state.daily_itineraries:
             activities_with_coordinates = [a for a in day_itinerary.activities if a.coordinates is not None]
@@ -179,7 +179,7 @@ class ItineraryBuilderAgent(BaseAgent):
         return state
 
     def _validate_budget_constraints(self, state: ItineraryState) -> ItineraryState:
-        self._logger.info("💵 Validating budget constraints")
+        self._log.info("💵 Validating budget constraints")
 
         budget_tracker = validate_budget(state.trip_request, state.daily_itineraries)
         state.budget_tracker = budget_tracker
@@ -187,7 +187,7 @@ class ItineraryBuilderAgent(BaseAgent):
 
     def _finalize_itinerary(self, state: ItineraryState) -> ItineraryState:
         """Create the final itinerary object"""
-        self._logger.info('Creating the final itinerary')
+        self._log.info('Creating the final itinerary')
 
         trip_request = state.trip_request
 
@@ -207,8 +207,8 @@ class ItineraryBuilderAgent(BaseAgent):
         """Decide whether to replan based on budget validation"""
 
         if require(state.budget_tracker).is_over_budget:
-            self._logger.warning('Overshot budget with current itinerary, retrying...')
+            self._log.warning('Overshot budget with current itinerary, retrying...')
             return 'replan'
         else:
-            self._logger.info('Within budget limits, continuing...')
+            self._log.info('Within budget limits, continuing...')
             return 'continue'

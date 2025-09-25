@@ -1,6 +1,7 @@
 ﻿import logging
 from datetime import timedelta, datetime, time, date
-from typing import cast
+from random import shuffle
+from typing import cast, TypeVar, Iterable, Any, Type
 
 from langchain_core.language_models import BaseChatModel
 from pydantic import BaseModel, Field
@@ -17,6 +18,11 @@ class TravelSegmentOptions(BaseModel):
     average_public_transport_fare: float = Field(default=2.5)
     base_taxi_fare: float = Field(default=1.5)
 
+T = TypeVar('T')
+
+def _items_of_type(items: list[Any], t: Type[T]) -> list[T]:
+    return [x for x in items if isinstance(x, t)]
+
 
 class ScheduleBuilder:
     def __init__(self, llm: BaseChatModel):
@@ -30,13 +36,28 @@ class ScheduleBuilder:
         :param places: The selected places to build the schedule around
         :param themes: The themes for each day
         """
+
+        self._logger.info('📅 Building itineraries for each day')
+        self._logger.info(f'{len(places)} Available places: {[p.name for p in places]}')
+        self._logger.info(f'Available themes: {themes.list}')
+        
         daily_itineraries: list[DayItinerary] = []
         current_date = trip_request.start_date
         options = self._get_travel_segment_options()
 
+        available_places = places.copy()
+
         for day_num, theme in enumerate(themes.list, 1):
-            day_places = self._assign_places_to_day(places, theme)
-            activities = self._build_day_activities(day_places, current_date)
+            self._logger.info(f'📅 Building itinerary for day {day_num} (theme: {theme})')
+            
+            if len(available_places) < 8:
+                available_places = places.copy() # Make all places available again if we run out of places
+            
+            day_places = self._assign_places_to_day(available_places, theme, day_num)
+            activities = self._build_day_activities(
+                all_places=places, 
+                available_places=day_places, 
+                current_date=current_date)
             travel_segments = self.calculate_travel_segments(activities, options)
 
             total_activity_cost: float = sum(a.estimated_cost for a in activities)
@@ -55,38 +76,56 @@ class ScheduleBuilder:
             daily_itineraries.append(day_itinerary)
             current_date += timedelta(days=1)
 
+            available_places = [p for p in places if p not in day_places] # Exclude the places from the current day for next days
+
         return daily_itineraries
 
-    def _assign_places_to_day(self, places: list[Place], theme: str) -> list[Place]:
+    def _assign_places_to_day(self, places: list[Place], theme: str, day_num: int) -> list[Place]:
         """Assign places to specific days based on theme and other factors"""
         theme_lower = theme.lower()
         day_places = [p for p in places if self._match_specific_theme(p, theme_lower)]
 
+        self._logger.info(f'{len(day_places)} available for day {day_num}: {[p.name for p in places]}')
+
         if not day_places:  # Take some places anyway
             day_places = places[:8]
 
-            # Limit places per day based on priority
+        # Limit places per day based on priority
         must_see = [p for p in day_places if p.priority == Priority.ESSENTIAL]
         should_see = [p for p in day_places if p.priority == Priority.HIGH]
         nice_to_see = [p for p in day_places if p.priority == Priority.MEDIUM]
+
+        shuffle(must_see)
+        shuffle(should_see)
+        shuffle(nice_to_see)
 
         # Build balanced day (max 6-8 activities)
         selected = must_see[:3] + should_see[:3] + nice_to_see[:2]
 
         return selected
-
-    @staticmethod
-    def _build_day_activities(places: list[Place], current_date: date) -> list[ItineraryActivity]:
+    
+    def _build_day_activities(self, all_places: list[Place], available_places: list[Place], current_date: date) -> list[ItineraryActivity]:
         """Build activities for a single day"""
         activities: list[ItineraryActivity] = []
+        
+        self._logger.info(f'🤔 Building activities for {current_date}')
 
         # Start at 9 AM
         current_time = datetime.combine(current_date, time(9, 0))
 
         # Separate places by type
-        landmarks = [cast(Landmark, p) for p in places if isinstance(p, Landmark)]
-        establishments = [cast(Establishment, p) for p in places if isinstance(p, Establishment)]
-        events = [cast(Event, p) for p in places if isinstance(p, Event) and p.date_and_time.date() == date]
+        landmarks = _items_of_type(available_places, Landmark)
+        establishments = _items_of_type(available_places, Establishment)
+        events = [x for x in _items_of_type(available_places, Event) if x.date_and_time.date() == date]
+        
+        if len(landmarks) < 5:
+            landmarks = _items_of_type(all_places, Landmark)
+            
+        if len(establishments) < 4:
+            establishments = _items_of_type(all_places, Establishment)
+        
+        shuffle(landmarks)
+        shuffle(establishments)
 
         # Plan morning activities (9 AM-12 PM)
         morning_places = landmarks[:2] + establishments[:1]  # 1-2 sights + coffee
@@ -98,6 +137,8 @@ class ScheduleBuilder:
 
         # Lunchtime (12 PM-2 PM)
         lunch_places = [e for e in establishments if 'restaurant' in e.establishment_type.lower()]
+        
+        shuffle(lunch_places)
 
         if lunch_places:
             target_place = lunch_places[0]
@@ -111,6 +152,8 @@ class ScheduleBuilder:
 
         # Afternoon activities (2 PM-6 PM)
         afternoon_places = landmarks[2:4] + establishments[1:2]
+        
+        shuffle(afternoon_places)
 
         for place in afternoon_places:
             if current_time.hour < 18:  # Don't go past 6 PM
@@ -126,6 +169,8 @@ class ScheduleBuilder:
         # Evening meal (7 PM)
         dinner_places = [e for e in establishments if
                          'restaurant' in e.establishment_type.lower() and e not in [lunch_places[0]] if lunch_places]
+        
+        shuffle(dinner_places)
 
         if dinner_places:
             date_and_time = datetime.combine(current_date, time(19, 0))
@@ -137,6 +182,8 @@ class ScheduleBuilder:
             activities.append(dinner_activity)
 
         activities.sort(key=lambda x: x.start_time)
+        
+        self._logger.info(f'Created {len(activities)} activities for {current_date}')
 
         return activities
 

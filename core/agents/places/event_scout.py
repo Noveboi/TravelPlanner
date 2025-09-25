@@ -18,7 +18,7 @@ class EventScoutAgent(BaseAgent):
         self._structured_llm = llm.with_structured_output(schema=EventsReport)
 
     def invoke(self, request: TripRequest) -> EventsReport:
-        self._logger.info('🔎 Researching events at the time of the trip...')
+        self._log.info('🔎 Researching events at the time of the trip...')
 
         search_prompt = self._create_search_prompt(request)
         search_result = self._llm.invoke(search_prompt)
@@ -29,6 +29,8 @@ class EventScoutAgent(BaseAgent):
         response = self._structured_llm.invoke(structure_prompt)
 
         assert isinstance(response, EventsReport)
+
+        self._log.info(f'Found {len(response.report)} events')
 
         return response
 

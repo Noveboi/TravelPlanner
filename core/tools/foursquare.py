@@ -61,6 +61,7 @@ class PlaceSearchRequest(BaseModel):
         le=50,
         default=35
     )
+    query: str | None = Field(default=None)
 
 
 class FoursquareApiClient:
@@ -104,11 +105,14 @@ class FoursquareApiClient:
             # 'fields': 'fsq_place_id,latitude,longitude,name,website,description,hours'
         }
 
-        if len(fsq.fsq_category_ids) > 0:
+        if fsq.fsq_category_ids:
             params['fsq_category_ids'] = fsq.fsq_category_ids
+            
+        if request.query:
+            params['query'] = request.query
 
-        self._logger.info('Sending request to Foursquare')
         response = requests.get(self._base_url + '/search', params=params, headers=headers)
+        
         self._logger.info('Received response from Foursquare')
 
         response.raise_for_status()
