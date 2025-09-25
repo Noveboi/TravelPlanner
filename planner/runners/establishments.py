@@ -1,5 +1,5 @@
 ﻿from planner.agents.places.establishment_scout import EstablishmentScoutAgent
-from planner.setup import llm, example_request
+from planner.runners.setup import llm, example_request
 
 if __name__ == '__main__':
     agent = EstablishmentScoutAgent(llm)

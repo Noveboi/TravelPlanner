@@ -2,7 +2,7 @@
 
 from planner.agents.itinerary.itinerary_agent import ItineraryBuilderAgent
 from planner.agents.places.destination_scout import DestinationScoutAgent
-from planner.setup import log, llm, example_request
+from planner.runners.setup import log, llm, example_request
 from planner.tools.foursquare import FoursquareApiClient
 
 

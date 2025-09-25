@@ -1,5 +1,5 @@
 ﻿from planner.agents.places.landmark_scout import LandmarkScoutAgent
-from planner.setup import llm, example_request
+from planner.runners.setup import llm, example_request
 
 if __name__ == '__main__':
     agent = LandmarkScoutAgent(llm)

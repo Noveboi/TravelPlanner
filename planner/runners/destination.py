@@ -1,5 +1,5 @@
 ﻿from planner.agents.places.destination_scout import DestinationScoutAgent
-from planner.setup import example_request, llm
+from planner.runners.setup import example_request, llm
 from planner.tools.foursquare import FoursquareApiClient
 
 if __name__ == '__main__':
