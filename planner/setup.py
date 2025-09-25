@@ -18,14 +18,13 @@ llm = ChatOpenAI(
     base_url="https://openrouter.ai/api/v1",
 )
 llm_with_tools = bind_necessary_tools(llm)
-log.info('Got LLM model')
 
 example_request = TripRequest(
-    destination='Athens',
-    start_date=date(2025, 12, 10),
-    end_date=date(2025, 12, 31),
-    budget=10000,
+    destination='Paris',
+    start_date=date(2026, 3, 10),
+    end_date=date(2025, 3, 17),
+    budget=3500,
     travelers=2,
     trip_type=TripType.COUPLE,
-    interests=['Sightseeing', 'Local cuisine', 'Music of any type']
+    interests=['Explore the history of Paris', 'Taste local delicacies', 'Gardens', 'Parks']
 )

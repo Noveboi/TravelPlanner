@@ -1,5 +1,5 @@
 ﻿from datetime import time, datetime, timedelta
-from typing import List, Optional, Any
+from typing import List, Optional, Any, cast
 
 from langchain_core.language_models import BaseLanguageModel
 from langgraph.graph import StateGraph
@@ -148,7 +148,7 @@ class ItineraryBuilderAgent(BaseAgent):
         self._logger.info("🏨 Generating accommodation activities")
 
         trip_request: TripRequest = state.trip_request
-        accommodations: list[Accommodation] = [p for p in state.selected_places if isinstance(p, Accommodation)]
+        accommodations: list[Accommodation] = [cast(Accommodation, p) for p in state.selected_places if isinstance(p, Accommodation)]
 
         selected_accommodation: Accommodation = select_best_accommodation(accommodations, trip_request)
 

@@ -102,7 +102,7 @@ class Accommodation(Place):
     """
     Describes a place that is an accommodation, like a hotel or a bnb. 
     """
-    price_options: List[float] = Field(description="A list of available prices, in EUR")
+    price_options: List[float] = Field(description="A list of available prices for the accommodation, in EUR")
 
 
 class EventsReport(BaseModel):
