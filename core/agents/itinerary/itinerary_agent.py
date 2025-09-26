@@ -85,7 +85,7 @@ class ItineraryBuilderAgent(BaseAgent):
          .add_node('plan_themes', self._plan_daily_themes)
          .add_node('allocate_accommodation', self._allocate_accommodation)
          .add_node('build_daily_schedules', self._build_daily_schedules)
-         .add_node('optimize_routes', self._optimize_routes)
+         # .add_node('optimize_routes', self._optimize_routes)
          .add_node('validate_budget_constraints', self._validate_budget_constraints)
          .add_node('finalize_itinerary', self._finalize_itinerary))
 
@@ -94,8 +94,9 @@ class ItineraryBuilderAgent(BaseAgent):
          .add_edge('filter_places', 'plan_themes')
          .add_edge('plan_themes', 'allocate_accommodation')
          .add_edge('allocate_accommodation', 'build_daily_schedules')
-         .add_edge('build_daily_schedules', 'optimize_routes')
-         .add_edge('optimize_routes', 'validate_budget_constraints')
+         .add_edge('build_daily_schedules', 'validate_budget_constraints')
+         # .add_edge('build_daily_schedules', 'optimize_routes')
+         # .add_edge('optimize_routes', 'validate_budget_constraints')
          .add_conditional_edges(
             'validate_budget_constraints',
             self._should_replan,
@@ -156,27 +157,27 @@ class ItineraryBuilderAgent(BaseAgent):
 
         return state
 
-    def _optimize_routes(self, state: ItineraryState) -> ItineraryState:
-        """Optimize the order of activities within each day for minimal travel time"""
-        self._log.info('🗺️📌 Routing and optimizing activity order')
-
-        for day_itinerary in state.daily_itineraries:
-            activities_with_coordinates = [a for a in day_itinerary.activities if a.coordinates is not None]
-
-            if len(activities_with_coordinates) <= 2:
-                continue
-
-            optimized_activities = optimize_activity_order(
-                activities_with_coordinates,
-                require(state.selected_places))
-
-            # Replace the activities in the day
-            other_activities = [a for a in day_itinerary.activities if a.coordinates is None]
-
-            day_itinerary.activities = optimized_activities + other_activities
-            day_itinerary.activities.sort(key=lambda x: x.start_time)
-
-        return state
+    # def _optimize_routes(self, state: ItineraryState) -> ItineraryState:
+    #     """Optimize the order of activities within each day for minimal travel time"""
+    #     self._log.info('🗺️📌 Routing and optimizing activity order')
+    # 
+    #     for day_itinerary in state.daily_itineraries:
+    #         activities_with_coordinates = [a for a in day_itinerary.activities if a.coordinates is not None]
+    # 
+    #         if len(activities_with_coordinates) <= 2:
+    #             continue
+    # 
+    #         optimized_activities = optimize_activity_order(
+    #             activities_with_coordinates,
+    #             require(state.selected_places))
+    # 
+    #         # Replace the activities in the day
+    #         other_activities = [a for a in day_itinerary.activities if a.coordinates is None]
+    # 
+    #         day_itinerary.activities = optimized_activities + other_activities
+    #         day_itinerary.activities.sort(key=lambda x: x.start_time)
+    # 
+    #     return state
 
     def _validate_budget_constraints(self, state: ItineraryState) -> ItineraryState:
         self._log.info("💵 Validating budget constraints")

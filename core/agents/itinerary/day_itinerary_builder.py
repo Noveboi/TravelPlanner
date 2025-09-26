@@ -5,7 +5,10 @@ from random import shuffle
 from typing import TypeVar, Any, Type, cast, List, Iterable, Callable
 
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import SystemMessage, HumanMessage
+from mypy.state import state
 from pydantic import BaseModel, Field
+from sqlalchemy.sql.coercions import RoleImpl
 
 from core.agents.itinerary.activities import ItineraryActivityFactory
 from core.agents.itinerary.spherical_distance import haversine_distance
@@ -88,14 +91,17 @@ class ScheduleBuilder:
         for day_num, theme in enumerate(themes.list, 1):
             self._logger.info(f'📅 Building itinerary for day {day_num} (theme: {theme})')
 
-            if len(available_places) < 6:
+            if len(available_places) < 12:
+                self._logger.info('❗ Shortage on available places. Resetting state to include all places.')
                 available_places = places.copy()  # Make all places available again if we run out of places
 
-            day_places = self._assign_places_to_day(available_places, theme, day_num)
             activities = self._build_day_activities(
-                all_places=available_places,
-                available_places=day_places,
-                current_date=current_date)
+                all_places=places,
+                available_places=available_places,
+                current_date=current_date,
+                theme=theme,
+                trip_request=trip_request)
+            
             travel_segments = self.calculate_travel_segments(activities, options)
 
             total_activity_cost: float = sum(a.estimated_cost for a in activities)
@@ -115,45 +121,24 @@ class ScheduleBuilder:
             current_date += timedelta(days=1)
 
             # Exclude the places from the current day for next days
-            day_ids = {p.id for p in day_places}
-            available_places = [p for p in places if p.id not in day_ids]
+            day_place_ids = {activity.place_id for activity in activities}
+            available_places = [p for p in places if p.id not in day_place_ids]
 
         return daily_itineraries
 
-    def _assign_places_to_day(self, places: list[Place], theme: str, day_num: int) -> list[Place]:
-        """Assign places to specific days based on theme and other factors"""
-        theme_lower = theme.lower()
-        day_places = [p for p in places if self._match_specific_theme(p, theme_lower)]
-
-        self._logger.info(f'{len(day_places)} places available for day {day_num}')
-
-        if not day_places:  # Take some places anyway
-            day_places = places[:8]
-
-        # Limit places per day based on priority
-        must_see = [p for p in day_places if p.priority == Priority.ESSENTIAL]
-        should_see = [p for p in day_places if p.priority == Priority.HIGH]
-        nice_to_see = [p for p in day_places if p.priority == Priority.MEDIUM]
-
-        shuffle(must_see)
-        shuffle(should_see)
-        shuffle(nice_to_see)
-
-        # Build balanced day (max 6-8 activities)
-        selected = must_see[:3] + should_see[:3] + nice_to_see[:2]
-
-        return selected
-
-    def _build_day_activities(self, all_places: list[Place], available_places: list[Place], current_date: date) -> list[ItineraryActivity]:
-        self._logger.info(f'🤔 Building activities for {current_date} and {len(available_places)} available places')
+    def _build_day_activities(self, 
+                              all_places: list[Place],
+                              available_places: list[Place],
+                              current_date: date,
+                              trip_request: TripRequest,
+                              theme: str
+                              ) -> list[ItineraryActivity]:
+        self._logger.info(f'🤔 Building activities with {len(available_places)} available places')
 
         # Separate places by type
         landmarks = _items_of_type(available_places, Landmark)
         establishments = _items_of_type(available_places, Establishment)
         events = [x for x in _items_of_type(available_places, Event) if x.date_and_time.date() == date]
-
-        shuffle(landmarks)
-        shuffle(establishments)
 
         landmarks.sort(key=lambda x: cast(Landmark, x).priority.value, reverse=True)
         establishments.sort(key=lambda x: cast(Establishment, x).priority.value, reverse=True)
@@ -161,8 +146,8 @@ class ScheduleBuilder:
         extend_unique_until(landmarks, _items_of_type(all_places, Landmark), 5, key=lambda x: x.id)
         extend_unique_until(establishments, _items_of_type(all_places, Establishment), 4, key=lambda x: x.id)
 
-        prompt_landmarks = [x.model_dump() for x in landmarks[:5]]
-        prompt_establishments = [x.model_dump() for x in establishments[:4]]
+        prompt_landmarks = [x.model_dump() for x in landmarks] 
+        prompt_establishments = [x.model_dump() for x in establishments] 
         prompt_events = [x.model_dump() for x in events]
         
         prompt = f"""
@@ -176,10 +161,24 @@ class ScheduleBuilder:
         - Events:
         {prompt_events}
         
-        Your task is to create activities for the entire day and organize them.
+        Your task is to create a balanced activity schedule for the entire day and organize them based on the client's preferences:
+        - Budget: {trip_request.budget} EUR
+        - Interests: {trip_request.interests}
+        - Group Type: {trip_request.trip_type.value}
+        - The day's theme: {theme}
         """
         
-        response = self._llm.with_structured_output(schema=DailyActivities).invoke(input=prompt)
+        role = f"""
+        You are a Travel Consultant based in {trip_request.destination}.
+        Your job is to design personalized travel plans
+        """
+        
+        response = (self._llm
+                    .with_structured_output(schema=DailyActivities)
+                    .invoke(input=[
+            SystemMessage(content=role),
+            HumanMessage(content=prompt)
+        ]))
 
         return [
             ItineraryActivityFactory.from_place(
@@ -188,32 +187,6 @@ class ScheduleBuilder:
                 duration_hours=activity.duration_hours
             ) for activity in (response.activities if isinstance(response, DailyActivities) else (response if isinstance(response, list) else None))
         ]
-
-    @staticmethod
-    def _match_specific_theme(place: Place, theme: str) -> bool:
-        """
-        Try to match a place's description to a given theme.        
-        :return: True if a match is found or the theme is generic, False if a match is not found.
-        """
-
-        place_text = f"{place.name} {place.reason_to_go}".lower()
-
-        match theme:
-            case 'historic':
-                return any(
-                    word in place_text for word in ['historic', 'old', 'ancient', 'cathedral', 'palace', 'monument'])
-            case 'museum' | 'culture':
-                return any(word in place_text for word in ['museum', 'gallery', 'art', 'cultural', 'exhibition'])
-            case 'food' | 'market':
-                return isinstance(place, Establishment) or any(
-                    word in place_text for word in ['market', 'food', 'restaurant'])
-            case 'nature' | 'park':
-                return any(word in place_text for word in ['park', 'garden', 'nature', 'outdoor', 'beach', 'mountain'])
-            case 'neighborhood' | 'neighbourhood' | 'local':
-                return any(
-                    word in place_text for word in ['neighborhood', 'neighbourhood', 'local', 'district', 'quarter'])
-            case _:
-                return True
 
     def _get_travel_segment_options(self) -> TravelSegmentOptions:
         prompt = """
