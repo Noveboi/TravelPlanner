@@ -1,54 +1,62 @@
 # Travel Itinerary Planner
 
-Create a balanced and tailored-to-you travel itinerary with the help of AI.
+Create balanced, personalized travel plans with AI. This app scouts destinations, landmarks, events, establishments, and accommodations, then assembles day-by-day itineraries tailored to your budget, interests, and trip duration. It scores places, balances themes and activities, and outputs clear itineraries you can use immediately.
 
-Developed with [LangGraph](https://langchain-ai.github.io/langgraph/), this system utilizes the agentic workflow
-capabilities of the framework to build a multi-agent chain-of-responsibility that starts with a user's travel request
-and ends with a complete travel itinerary.
+## Getting Started
 
-## Agents
+### 1 - Clone the repository
+```shell
+git clone https://github.com/Noveboi/TravelPlanner
+```
 
-Below are the agents used in the workflow of the system. Each agent has a single responsibility.
+### 2 - Create a virtual environment
+Once you've cloned the repository. Navigate to the root with your terminal and create a virtual environment
 
-### Trip Analyzer
+```shell
+python -m venv .venv
+```
 
-Generates a profile for the trip such as assessing group dynamics (travelling solo, family, couple, ...) and parsing the
-travel style/preference of the user
+### 3 - Activate your virtual environment
+```shell
+# On Mac/Linux
+source .venv/bin/activate
+```
 
-### Destination Scout
+```shell
+# On Windows using Powershell
+source .venv\Scripts\Activate.ps1
+```
 
-Responsible for gathering information about a specific destination, including weather patterns, cost indicators,
-seasonal considerations and more...
+```shell
+# On Windows using Bash (e.g: Typically a VS Code or PyCharm terminal)
+source .venv/Scripts/activate
+```
 
-This agent heavily uses external third-party APIs to get up-to-date information on places and the destination in
-general.
+### 4 - Install Packages
+After you've set up your virtual environment, install the packages declared in **requirements.txt**:
 
-### Activity Finder
+```shell
+pip install -r requirements.txt
+```
 
-Discovers and categorizes activities for the trip such as:
+### 5 - Setup API Keys
+For the application to run, you need to set some API keys and set then in a `.env` file. First, create the .env file:
 
-- Must-see attractions
-- Hidden gems
+```dotenv
+TAVILY_API_KEY=<YOUR-KEY-HERE>
+OPENAI_API_KEY=<YOUR-KEY-HERE>
+FOURSQUARE_API_KEY=<YOUR-KEY-HERE>
+```
 
-All while taking into account the user's travel profile.
+The keys you'll need are from:
 
-### Budgeting
+- [Tavily](https://www.tavily.com/): Create a free account, and you'll get an API key.
+- [OpenRouter](https://openrouter.ai): Create a free account, then go [here](https://openrouter.ai/settings/keys) to get an API key. If you plan to use some other LLM model (locally or not OpenRouter), then you can configure accordingly.
+- [Foursquare](https://foursquare.com/developer/): Create a free account and go to the [developer console](https://foursquare.com/developers/home). Start by creating a new project, then navigate to the project and click "Generate API Key", then generate a "**Service API Key**" and copy it.
 
-Optimizes spending across categories based on the user's profile. This includes:
+After you've added all three API keys, you are ready.
 
-- Accommodation recommendations (location vs cost)
-- Transportation cost analysis
-- Activity prioritization based on user's given budget
-
-### Itinerary Builder
-
-Creates logical day-by-day plans for the whole trip. Tailors the itinerary based on:
-
-- Minimizing travel time
-- Managing relaxed and intense days
-- Meal planning
-
-## Tools
-
-External APIs and tools are used to gather up-to-date and relevant data and information for the construction of the
-itinerary
+### 6 - Run the app
+```shell
+python main.py
+```
