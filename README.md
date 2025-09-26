@@ -24,7 +24,7 @@ source .venv/bin/activate
 
 ```shell
 # On Windows using Powershell
-source .venv\Scripts\Activate.ps1
+.venv\Scripts\Activate.ps1
 ```
 
 ```shell
@@ -43,9 +43,9 @@ pip install -r requirements.txt
 For the application to run, you need to set some API keys and set then in a `.env` file. First, create the .env file:
 
 ```dotenv
-TAVILY_API_KEY=<YOUR-KEY-HERE>
-OPENAI_API_KEY=<YOUR-KEY-HERE>
-FOURSQUARE_API_KEY=<YOUR-KEY-HERE>
+TAVILY_API_KEY=<YOUR-TAVILY-KEY-HERE>
+OPENAI_API_KEY=<YOUR-OPENROUTER-KEY-HERE>
+FOURSQUARE_API_KEY=<YOUR-FOURSQUARE-KEY-HERE>
 ```
 
 The keys you'll need are from:
