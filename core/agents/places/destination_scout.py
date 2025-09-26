@@ -79,7 +79,7 @@ class DestinationScoutAgent(BaseAgent):
         scout = LandmarkScoutAgent(self._llm)
         result = scout.invoke(state.trip_request)
 
-        self._log.info('✅ Finished Landmarks')
+        self._log.info(f'✅ Finished Landmarks (found {len(result.report)})')
 
         return {'landmarks': result}
 
@@ -87,7 +87,7 @@ class DestinationScoutAgent(BaseAgent):
         scout = EventScoutAgent(self._llm)
         result = scout.invoke(state.trip_request)
 
-        self._log.info('✅ Finished Events')
+        self._log.info(f'✅ Finished Events (found {len(result.report)})')
 
         return {'events': result}
 
@@ -95,7 +95,7 @@ class DestinationScoutAgent(BaseAgent):
         scout = EstablishmentScoutAgent(self._llm, self._client)
         result = scout.invoke(state.trip_request)
 
-        self._log.info('✅ Finished Establishments')
+        self._log.info(f'✅ Finished Establishments (found {len(result.report)})')
 
         return {'establishments': result}
 
@@ -103,6 +103,6 @@ class DestinationScoutAgent(BaseAgent):
         scout = AccommodationScoutAgent(self._llm, self._client)
         result = scout.invoke(state.trip_request)
 
-        self._log.info('✅ Finished Accommodations')
+        self._log.info(f'✅ Finished Accommodations (found {len(result.report)})')
 
         return {'accommodations': result}

@@ -18,18 +18,21 @@ class BookingType(str, Enum):
     NONE = "None"
 
 
-class Priority(str, Enum):
-    ESSENTIAL = "Essential"
-    HIGH = "High"
-    MEDIUM = "Medium"
-    LOW = "Low"
+class Priority(int, Enum):
+    """
+    Place priority (higher is more important)
+    """
+    ESSENTIAL = 4
+    HIGH = 3
+    MEDIUM = 2
+    LOW = 1
 
 
 class Place(BaseModel):
     """
     The fundamental model for any type of place.
     """
-    id: uuid.UUID = uuid.uuid4()
+    id: uuid.UUID = Field(default_factory=lambda: uuid.uuid4())
     name: str = Field(
         description="The commonly used name for the place"
     )

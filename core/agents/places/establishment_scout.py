@@ -1,5 +1,6 @@
 ﻿import operator
-from typing import Annotated, Any, Literal
+import uuid
+from typing import Annotated, Any, Literal, List, Dict
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage
@@ -10,11 +11,42 @@ from pydantic import BaseModel, Field
 from core.agents.base import BaseAgent
 from core.agents.null_checks import require
 from core.agents.places.accommodation_scout import SearchInformation, get_search_info, convert_fsq_to_place
-from core.models.places import EstablishmentReport, Place
+from core.models.places import EstablishmentReport, Place, Establishment, Priority
 from core.models.trip import TripRequest
 from core.tools.foursquare import FoursquareApiClient, PlaceSearchRequest
 from core.tools.tools import get_available_tools
 
+
+class MissingEstablishmentDetails(BaseModel):
+    establishment_id: uuid.UUID = Field(
+        description="The ID of the establishment this instance refers to."
+    )
+    average_price: float = Field(
+        description="The average price for the establishment"
+    )
+    establishment_type: str = Field(
+        description="The type of the establishment",
+        examples=['Restaurant', 'Cafe', 'Bar', 'Pub', 'Tavern', 'Canteen']
+    )
+    average_hours_of_stay: float = Field(
+        description="How many hours people typically spend in the establishment"
+    )
+    priority: Priority = Field(
+        description="How important is it the traveller goes to this establishment?"
+    )
+    opening_schedule: Dict[str, str] = Field(
+        description="The opening hours for the establishment.",
+        examples=[
+            {"Daily", "09:00-15:00"},
+            {"Weekends", "08:00-20:00"},
+            {"Tuesday-Saturday", "08:00-20:00"},
+        ],
+    )
+
+class EstablishmentDetails(BaseModel):
+    establishments: List[MissingEstablishmentDetails] = Field(
+        description='A list of establishments with no missing information'
+    )
 
 class EstablishmentState(BaseModel):
     trip_request: TripRequest = Field(description='The initial trip request of the user')
@@ -27,6 +59,11 @@ class EstablishmentState(BaseModel):
     )
     establishments: Annotated[list[Place], operator.add] = Field(
         description='A list of the currently collected establishments',
+        default_factory=list
+    )
+    index: int = Field(default=0)
+    extra_establishment_details: Annotated[list[MissingEstablishmentDetails], operator.add] = Field(
+        description='A list of the currently collected additional establishment information',
         default_factory=list
     )
     report: EstablishmentReport | None = Field(
@@ -56,6 +93,7 @@ class EstablishmentScoutAgent(BaseAgent):
 
         workflow.add_node('create_search_info', self._get_search_info)
         workflow.add_node('search_establishments', self._search_establishments)
+        workflow.add_node('fill_out_missing_establishment_info', self._fill_out_missing_establishment_info)
         workflow.add_node('generate_report', self._generate_report)
 
         workflow.set_entry_point('create_search_info')
@@ -66,12 +104,72 @@ class EstablishmentScoutAgent(BaseAgent):
             self._needs_to_search_for_more_establishments,
             {
                 'yes': 'create_search_info',
+                'no': 'fill_out_missing_establishment_info'
+            }
+        )
+
+        workflow.add_conditional_edges(
+            'fill_out_missing_establishment_info',
+            self._has_more_establishments_to_fill_out,
+            {
+                'yes': 'fill_out_missing_establishment_info',
                 'no': 'generate_report'
-            })
+            }
+        )
 
         workflow.set_finish_point('generate_report')
 
         return workflow
+    
+    @staticmethod
+    def _has_more_establishments_to_fill_out(state: EstablishmentState) -> Literal['yes', 'no']:
+        return 'yes' if state.index < len(state.establishments) else 'no'
+    
+    def _fill_out_missing_establishment_info(self, state: EstablishmentState) -> dict[str, list[Establishment] | int]:
+        agent = create_react_agent(
+            model=self._llm,
+            tools=get_available_tools(),
+            response_format=EstablishmentDetails
+        )
+        
+        start = state.index
+        end = min(len(state.establishments), state.index + 20)
+        
+        self._log.info(f'🍽️ Gathering additional information for establishments #{start+1} - #{end}')
+        
+        scoped_establishments = state.establishments[start:end]
+
+        prompt_context = {
+            'destination': state.trip_request.destination,
+            'establishments': [e.model_dump() for e in scoped_establishments]
+        }
+
+        prompt = f"""
+                You are given a list of establishments (restaurants, cafes, bars, etc.) in {state.trip_request.destination} along with additional information:
+                
+                {prompt_context}
+                
+                Your task is to gather the missing information for each establishment:
+                - The average price of the establishment (per person)
+                - The type of the establishment
+                - Opening schedule/hours
+                - Typical hours of stay (you can be granular if it is necessary)
+                - The priority of the establishment
+                
+                Do not include/exclude any establishment from the given list
+                """
+
+        # noinspection PyTypeChecker
+        response = agent.invoke(input={'messages': [HumanMessage(content=prompt)]})
+        structured_response = response['structured_response']
+
+        if isinstance(structured_response, list) and isinstance(structured_response[0], MissingEstablishmentDetails):
+             return { 'extra_establishment_details': structured_response, 'index': end }
+        elif isinstance(structured_response, EstablishmentDetails):
+            return { 'extra_establishment_details': structured_response.establishments, 'index': end }
+
+        raise ValueError(f'Invalid agent output for EstablishmentReport: {type(structured_response)}')
+        
 
     def _needs_to_search_for_more_establishments(self, state: EstablishmentState) -> Literal['yes', 'no']:
         state.establishments_to_retrieve -= len(state.establishments)
@@ -101,43 +199,25 @@ class EstablishmentScoutAgent(BaseAgent):
         response = require(self._client.invoke(search_request))
 
         establishments = [convert_fsq_to_place(fsq) for fsq in response.results]
+        
+        self._log.info(f'🍴 Got {len(establishments)} establishments')
+        
         return {'establishments': establishments}
 
     def _generate_report(self, state: EstablishmentState) -> dict[str, EstablishmentReport]:
-        agent = create_react_agent(
-            model=self._llm,
-            tools=get_available_tools(),
-            response_format=EstablishmentReport
-        )
-
-        self._log.info('🍽️🍸 Generating final establishment report')
-
-        prompt = f"""
-                You are given a list of establishments (restaurants, cafes, bars, etc.) in {state.trip_request.destination} along with additional information:
-                
-                {state.model_dump_json()}
-                
-                Your task is to fill in the missing information for each establishment:
-                - The average price of the establishment (per person)
-                - The type of the establishment
-                - Opening schedule/hours
-                - Typical hours of stay (you can be granular if it is necessary)
-                
-                Additionally, change the priority field if necessary.
-                
-                Do not include/exclude any establishment from the given list
-                """
-
-        # noinspection PyTypeChecker
-        response = agent.invoke(input={'messages': [HumanMessage(content=prompt)]})
-        structured_response = response['structured_response']
-
-        if isinstance(structured_response, list):
-            return {'report': EstablishmentReport(report=structured_response)}
-        elif isinstance(structured_response, EstablishmentReport):
-            return {'report': structured_response}
-
-        raise ValueError(f'Invalid agent output for EstablishmentReport: {type(structured_response)}')
+        report: list[Establishment] = []
+        
+        self._log.info('🍸 Generating final establishment report')
+        
+        for details in state.extra_establishment_details:
+            target = next(x for x in state.establishments if x.id == details.establishment_id)
+            establishment_dict = target.model_dump()
+            details_dict = details.model_dump()
+            
+            # Join order matters here, right dict wins on key conflicts!
+            report.append(Establishment.model_validate(establishment_dict | details_dict)) 
+        
+        return { 'report': EstablishmentReport(report=report) }
 
     def invoke(self, request: TripRequest) -> EstablishmentReport:
         self._log.info("🔎 Researching establishments...")

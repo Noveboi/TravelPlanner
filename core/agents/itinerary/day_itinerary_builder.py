@@ -1,7 +1,8 @@
 ﻿import logging
+import uuid
 from datetime import timedelta, datetime, time, date
 from random import shuffle
-from typing import TypeVar, Any, Type
+from typing import TypeVar, Any, Type, cast, List, Iterable, Callable
 
 from langchain_core.language_models import BaseChatModel
 from pydantic import BaseModel, Field
@@ -24,6 +25,41 @@ T = TypeVar('T')
 
 def _items_of_type(items: list[Any], t: Type[T]) -> list[T]:
     return [x for x in items if isinstance(x, t)]
+
+def extend_unique_until(
+        dest: list[T],
+        src: Iterable[T],
+        target_count: int,
+        key: Callable[[T], object],
+) -> None:
+    """
+    Append items from src into dest until len(dest) == target_count,
+    skipping duplicates. Key(item) determines duplicates 
+    """
+    seen_keys = {key(x) for x in dest}
+    for item in src:
+        if len(dest) >= target_count:
+            break
+        k = key(item)
+        if k not in seen_keys:
+            dest.append(item)
+            seen_keys.add(k)
+
+class ActivitySchedule(BaseModel):
+    place_id: uuid.UUID = Field(
+        description='The ID of the landmark/establishment/event so we can reference it easily'
+    )
+    start_time: time = Field(
+        description='The time to begin this activity',
+    )
+    duration_hours: float = Field(
+        description='How long this activity can last (in hours)'
+    )
+    
+class DailyActivities(BaseModel):
+    activities: List[ActivitySchedule] = Field(
+        description='The activities for the day'
+    )
 
 
 class ScheduleBuilder:
@@ -52,12 +88,12 @@ class ScheduleBuilder:
         for day_num, theme in enumerate(themes.list, 1):
             self._logger.info(f'📅 Building itinerary for day {day_num} (theme: {theme})')
 
-            if len(available_places) < 8:
+            if len(available_places) < 6:
                 available_places = places.copy()  # Make all places available again if we run out of places
 
             day_places = self._assign_places_to_day(available_places, theme, day_num)
             activities = self._build_day_activities(
-                all_places=places,
+                all_places=available_places,
                 available_places=day_places,
                 current_date=current_date)
             travel_segments = self.calculate_travel_segments(activities, options)
@@ -78,8 +114,9 @@ class ScheduleBuilder:
             daily_itineraries.append(day_itinerary)
             current_date += timedelta(days=1)
 
-            available_places = [p for p in places if
-                                p not in day_places]  # Exclude the places from the current day for next days
+            # Exclude the places from the current day for next days
+            day_ids = {p.id for p in day_places}
+            available_places = [p for p in places if p.id not in day_ids]
 
         return daily_itineraries
 
@@ -88,7 +125,7 @@ class ScheduleBuilder:
         theme_lower = theme.lower()
         day_places = [p for p in places if self._match_specific_theme(p, theme_lower)]
 
-        self._logger.info(f'{len(day_places)} available for day {day_num}: {[p.name for p in places]}')
+        self._logger.info(f'{len(day_places)} places available for day {day_num}')
 
         if not day_places:  # Take some places anyway
             day_places = places[:8]
@@ -107,89 +144,50 @@ class ScheduleBuilder:
 
         return selected
 
-    def _build_day_activities(self, all_places: list[Place], available_places: list[Place], current_date: date) -> list[
-        ItineraryActivity]:
-        """Build activities for a single day"""
-        activities: list[ItineraryActivity] = []
-
-        self._logger.info(f'🤔 Building activities for {current_date}')
-
-        # Start at 9 AM
-        current_time = datetime.combine(current_date, time(9, 0))
+    def _build_day_activities(self, all_places: list[Place], available_places: list[Place], current_date: date) -> list[ItineraryActivity]:
+        self._logger.info(f'🤔 Building activities for {current_date} and {len(available_places)} available places')
 
         # Separate places by type
         landmarks = _items_of_type(available_places, Landmark)
         establishments = _items_of_type(available_places, Establishment)
         events = [x for x in _items_of_type(available_places, Event) if x.date_and_time.date() == date]
 
-        if len(landmarks) < 5:
-            landmarks = _items_of_type(all_places, Landmark)
-
-        if len(establishments) < 4:
-            establishments = _items_of_type(all_places, Establishment)
-
         shuffle(landmarks)
         shuffle(establishments)
 
-        # Plan morning activities (9 AM-12 PM)
-        morning_places = landmarks[:2] + establishments[:1]  # 1-2 sights + coffee
+        landmarks.sort(key=lambda x: cast(Landmark, x).priority.value, reverse=True)
+        establishments.sort(key=lambda x: cast(Establishment, x).priority.value, reverse=True)
 
-        for place in morning_places:
-            activity = ItineraryActivityFactory.from_place(place, current_time)
-            activities.append(activity)
-            current_time = activity.end_time + timedelta(minutes=30)  # Travel buffer
+        extend_unique_until(landmarks, _items_of_type(all_places, Landmark), 5, key=lambda x: x.id)
+        extend_unique_until(establishments, _items_of_type(all_places, Establishment), 4, key=lambda x: x.id)
 
-        # Lunchtime (12 PM-2 PM)
-        lunch_places = [e for e in establishments if 'restaurant' in e.establishment_type.lower()]
+        prompt_landmarks = [x.model_dump() for x in landmarks[:5]]
+        prompt_establishments = [x.model_dump() for x in establishments[:4]]
+        prompt_events = [x.model_dump() for x in events]
+        
+        prompt = f"""
+        Consider the following places:
+        - Landmarks: 
+        {prompt_landmarks}
+        
+        - Establishments (Restaurants, Cafes, etc.):
+        {prompt_establishments}
+        
+        - Events:
+        {prompt_events}
+        
+        Your task is to create activities for the entire day and organize them.
+        """
+        
+        response = self._llm.with_structured_output(schema=DailyActivities).invoke(input=prompt)
 
-        shuffle(lunch_places)
-
-        if lunch_places:
-            target_place = lunch_places[0]
-            date_and_time = datetime.combine(current_date, time(12, 30))
-
-            lunch_activity = ItineraryActivityFactory.from_place(target_place, date_and_time)
-            lunch_activity.name = f"Lunch at {target_place.name}"
-
-            activities.append(lunch_activity)
-            current_time = lunch_activity.end_time + timedelta(minutes=15)
-
-        # Afternoon activities (2 PM-6 PM)
-        afternoon_places = landmarks[2:4] + establishments[1:2]
-
-        shuffle(afternoon_places)
-
-        for place in afternoon_places:
-            if current_time.hour < 18:  # Don't go past 6 PM
-                activity = ItineraryActivityFactory.from_place(place, current_time)
-                activities.append(activity)
-                current_time = activity.end_time + timedelta(minutes=30)
-
-        # Add any events happening today
-        for event in events:
-            event_activity = ItineraryActivityFactory.from_place(event, event.date_and_time)
-            activities.append(event_activity)
-
-        # Evening meal (7 PM)
-        dinner_places = [e for e in establishments if
-                         'restaurant' in e.establishment_type.lower() and e not in [lunch_places[0]] if lunch_places]
-
-        shuffle(dinner_places)
-
-        if dinner_places:
-            date_and_time = datetime.combine(current_date, time(19, 0))
-            dinner_place = dinner_places[0]
-
-            dinner_activity = ItineraryActivityFactory.from_place(dinner_place, date_and_time)
-            dinner_activity.name = f"Dinner at {dinner_place.name}"
-
-            activities.append(dinner_activity)
-
-        activities.sort(key=lambda x: x.start_time)
-
-        self._logger.info(f'Created {len(activities)} activities for {current_date}')
-
-        return activities
+        return [
+            ItineraryActivityFactory.from_place(
+                place=next((place for place in all_places if place.id == activity.place_id)),
+                start_time=datetime.combine(current_date, activity.start_time),
+                duration_hours=activity.duration_hours
+            ) for activity in (response.activities if isinstance(response, DailyActivities) else (response if isinstance(response, list) else None))
+        ]
 
     @staticmethod
     def _match_specific_theme(place: Place, theme: str) -> bool:

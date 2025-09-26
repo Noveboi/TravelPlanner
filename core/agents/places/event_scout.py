@@ -30,8 +30,6 @@ class EventScoutAgent(BaseAgent):
 
         assert isinstance(response, EventsReport)
 
-        self._log.info(f'Found {len(response.report)} events')
-
         return response
 
     @staticmethod

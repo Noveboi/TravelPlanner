@@ -11,9 +11,10 @@ class ItineraryActivityFactory:
     def from_place(
             place: Place,
             start_time: datetime,
+            duration_hours: float,
             notes: list[str] | None = None
     ) -> ItineraryActivity:
-        duration_hours = place.typical_hours_of_stay
+        
         end_time = start_time + timedelta(hours=duration_hours)
 
         # Determine the activity type

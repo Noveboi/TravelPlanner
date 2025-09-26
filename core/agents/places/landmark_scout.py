@@ -23,8 +23,6 @@ class LandmarkScoutAgent(BaseAgent):
 
         assert isinstance(response, LandmarksReport)
 
-        self._log.info(f'Found {len(response.report)} landmarks')
-
         return response
 
     @staticmethod
