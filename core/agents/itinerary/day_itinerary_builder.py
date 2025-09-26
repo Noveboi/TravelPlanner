@@ -209,10 +209,16 @@ class ScheduleBuilder:
         for i in range(len(activities) - 1):
             current_activity = activities[i]
             next_activity = activities[i + 1]
+            
+            if current_activity.coordinates is None or next_activity.coordinates is None:
+                continue
+                
+            # This can happen, we skip here
+            if current_activity.start_time == next_activity.start_time:
+                continue
 
-            if current_activity.coordinates is not None and next_activity.coordinates is not None:
-                segment = self.calculate_travel_segment(current_activity, next_activity, options)
-                travel_segments.append(segment)
+            segment = self.calculate_travel_segment(current_activity, next_activity, options)
+            travel_segments.append(segment)
 
         return travel_segments
 

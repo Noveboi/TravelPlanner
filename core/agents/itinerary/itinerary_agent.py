@@ -1,4 +1,4 @@
-﻿from typing import List, Optional, Any, cast
+﻿from typing import List, Optional, Any
 
 from langchain_core.language_models import BaseChatModel
 from langgraph.graph import StateGraph
@@ -6,10 +6,8 @@ from pydantic import BaseModel, Field
 
 from core.agents.base import BaseAgent
 from core.agents.itinerary.accommodation_choice import select_best_accommodation
-from core.agents.itinerary.activities import optimize_activity_order
 from core.agents.itinerary.budget import validate_budget, BudgetTracker, create_budget_breakdown
 from core.agents.itinerary.day_itinerary_builder import ScheduleBuilder
-from core.agents.itinerary.place_score import filter_places_by_criteria
 from core.agents.itinerary.themes import DailyThemes, generate_daily_themes
 from core.agents.null_checks import require
 from core.models.itinerary import DayItinerary, TripItinerary
@@ -81,7 +79,6 @@ class ItineraryBuilderAgent(BaseAgent):
         )
 
         (workflow
-         .add_node('filter_places', self._filter_and_prioritize_places)
          .add_node('plan_themes', self._plan_daily_themes)
          .add_node('allocate_accommodation', self._allocate_accommodation)
          .add_node('build_daily_schedules', self._build_daily_schedules)
@@ -90,8 +87,7 @@ class ItineraryBuilderAgent(BaseAgent):
          .add_node('finalize_itinerary', self._finalize_itinerary))
 
         (workflow
-         .set_entry_point('filter_places')
-         .add_edge('filter_places', 'plan_themes')
+         .set_entry_point('plan_themes')
          .add_edge('plan_themes', 'allocate_accommodation')
          .add_edge('allocate_accommodation', 'build_daily_schedules')
          .add_edge('build_daily_schedules', 'validate_budget_constraints')
@@ -108,22 +104,6 @@ class ItineraryBuilderAgent(BaseAgent):
          .set_finish_point('finalize_itinerary'))
 
         return workflow
-
-    def _filter_and_prioritize_places(self, state: ItineraryState) -> ItineraryState:
-        self._log.info("🔎 Filtering and prioritizing places")
-
-        trip_request = state.trip_request
-        destination_report = state.destination_report
-
-        # Do not include accommodations
-        all_places: list[Place] = (
-                [cast(Place, x) for x in destination_report.landmarks.report] +
-                [cast(Place, x) for x in destination_report.establishments.report] +
-                [cast(Place, x) for x in destination_report.events.report]
-        )
-
-        state.selected_places = filter_places_by_criteria(all_places, trip_request)
-        return state
 
     def _plan_daily_themes(self, state: ItineraryState) -> ItineraryState:
         """Plan themes for each day based on interests and selected places"""

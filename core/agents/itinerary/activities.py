@@ -1,6 +1,6 @@
 ﻿from datetime import datetime, timedelta
 
-from core.agents.itinerary.place_score import estimate_place_cost
+from core.agents.itinerary.places import estimate_place_cost
 from core.agents.itinerary.spherical_distance import haversine_distance
 from core.models.itinerary import ItineraryActivity, ActivityType
 from core.models.places import Place, Establishment, Event, BookingType
