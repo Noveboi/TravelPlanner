@@ -63,9 +63,9 @@ class ItineraryBuilderAgent(BaseAgent):
 
     def invoke(self, request: TripRequest, destination_report: DestinationReport) -> TripItinerary:
         state_input = ItineraryAgentInput(
-            trip_request=request, 
+            trip_request=request,
             destination_report=destination_report)
-        
+
         final_state = self.workflow.invoke(input=state_input)
 
         return final_state['final_itinerary']

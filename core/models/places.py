@@ -133,12 +133,12 @@ class DestinationReport(BaseModel):
     establishments: EstablishmentReport = Field()
     events: EventsReport = Field()
     accommodations: AccommodationReport = Field()
-    
+
     @property
     def all_places(self) -> list[Place]:
         return (
-            cast_items(self.landmarks.report, Place) +
-            cast_items(self.establishments.report, Place) +
-            cast_items(self.events.report, Place) +
-            cast_items(self.accommodations.report, Place)
+                cast_items(self.landmarks.report, Place) +
+                cast_items(self.establishments.report, Place) +
+                cast_items(self.events.report, Place) +
+                cast_items(self.accommodations.report, Place)
         )

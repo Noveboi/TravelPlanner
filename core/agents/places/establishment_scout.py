@@ -60,7 +60,6 @@ class EstablishmentState(BaseModel):
         description='A list of the currently collected establishments',
         default_factory=list
     )
-    index: int = Field(default=0)
     extra_establishment_details: Annotated[list[MissingEstablishmentDetails], operator.add] = Field(
         description='A list of the currently collected additional establishment information',
         default_factory=list
@@ -125,23 +124,19 @@ class EstablishmentScoutAgent(BaseAgent):
     def _has_more_establishments_to_fill_out(state: EstablishmentState) -> Literal['yes', 'no']:
         return 'yes' if state.index < len(state.establishments) else 'no'
 
-    def _fill_out_missing_establishment_info(self, state: EstablishmentState) -> dict[str, list[Establishment] | int]:
+    def _fill_out_missing_establishment_info(self, state: EstablishmentState) -> dict[
+        str, list[MissingEstablishmentDetails]]:
         agent = create_react_agent(
             model=self._llm,
             tools=get_available_tools(),
             response_format=EstablishmentDetails
         )
 
-        start = state.index
-        end = min(len(state.establishments), state.index + 20)
-
-        self._log.info(f'🍽️ Gathering additional information for establishments #{start + 1} - #{end}')
-
-        scoped_establishments = state.establishments[start:end]
+        self._log.info('🍽️ Gathering additional information for establishments')
 
         prompt_context = {
             'destination': state.trip_request.destination,
-            'establishments': [e.model_dump() for e in scoped_establishments]
+            'establishments': [e.model_dump() for e in state.establishments]
         }
 
         prompt = f"""
@@ -164,9 +159,9 @@ class EstablishmentScoutAgent(BaseAgent):
         structured_response = response['structured_response']
 
         if isinstance(structured_response, list) and isinstance(structured_response[0], MissingEstablishmentDetails):
-            return {'extra_establishment_details': structured_response, 'index': end}
+            return {'extra_establishment_details': structured_response}
         elif isinstance(structured_response, EstablishmentDetails):
-            return {'extra_establishment_details': structured_response.establishments, 'index': end}
+            return {'extra_establishment_details': structured_response.establishments}
 
         raise ValueError(f'Invalid agent output for EstablishmentReport: {type(structured_response)}')
 

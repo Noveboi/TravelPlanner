@@ -8,12 +8,12 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from pydantic import BaseModel, Field
 
 from core.agents.itinerary.activities import ItineraryActivityFactory
-from core.agents.itinerary.spherical_distance import haversine_distance
 from core.agents.itinerary.themes import DailyThemes
 from core.agents.utils import items_of_type
 from core.models.itinerary import DayItinerary, ActivityType, ItineraryActivity, TransportMode, TravelSegment
 from core.models.places import Place, Establishment, Landmark, Event
 from core.models.trip import TripRequest
+from core.tools.spherical_distance import haversine_distance
 
 
 class TravelSegmentOptions(BaseModel):
@@ -22,6 +22,7 @@ class TravelSegmentOptions(BaseModel):
 
 
 T = TypeVar('T')
+
 
 def extend_unique_until(
         dest: list[T],

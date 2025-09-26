@@ -2,12 +2,11 @@
 
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import Runnable
-from langgraph.prebuilt import create_react_agent
 from pydantic import BaseModel, Field
 
+from core.agents.utils import invoke_react_agent
 from core.models.geography import Coordinates
 from core.models.trip import TripRequest
-from core.tools.tools import get_available_tools
 
 
 class SearchInfo(BaseModel):
@@ -39,16 +38,4 @@ def determine_search(req: TripRequest, llm: Runnable) -> SearchInfo:
     - Consider trip duration: shorter trips → tighter radius near dense attractions; longer trips → broader radius.
     """
 
-    agent = create_react_agent(
-        model=llm,
-        tools=get_available_tools(),
-        response_format=SearchInfo,
-    )
-
-    # noinspection PyTypeChecker
-    response = agent.invoke(input={'messages': [HumanMessage(content=prompt)]})
-    structured_response = response['structured_response']
-
-    assert isinstance(structured_response, SearchInfo)
-
-    return structured_response
+    return invoke_react_agent(llm, [HumanMessage(prompt)], schema=SearchInfo)
