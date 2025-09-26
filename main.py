@@ -22,9 +22,3 @@ if __name__ == '__main__':
         f.write(itinerary.model_dump_json(indent=4))
 
     print('Finished your itinerary! It has been saved as a JSON file in the repository root.')
-
-    if prompts.should_pretty_print_to_console():
-        print(itinerary.as_pretty_string())
-
-    input('Press any key to exit')
-    exit(0)

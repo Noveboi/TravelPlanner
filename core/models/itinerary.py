@@ -113,6 +113,3 @@ class TripItinerary(BaseModel):
         description="Cost breakdown by category",
         default_factory=dict
     )
-
-    def as_pretty_string(self):
-        pass
