@@ -26,6 +26,7 @@ T = TypeVar('T')
 def _items_of_type(items: list[Any], t: Type[T]) -> list[T]:
     return [x for x in items if isinstance(x, t)]
 
+
 def extend_unique_until(
         dest: list[T],
         src: Iterable[T],
@@ -45,6 +46,7 @@ def extend_unique_until(
             dest.append(item)
             seen_keys.add(k)
 
+
 class ActivitySchedule(BaseModel):
     place_id: uuid.UUID = Field(
         description='The ID of the landmark/establishment/event so we can reference it easily'
@@ -55,7 +57,8 @@ class ActivitySchedule(BaseModel):
     duration_hours: float = Field(
         description='How long this activity can last (in hours)'
     )
-    
+
+
 class DailyActivities(BaseModel):
     activities: List[ActivitySchedule] = Field(
         description='The activities for the day'
@@ -98,7 +101,7 @@ class ScheduleBuilder:
                 current_date=current_date,
                 theme=theme,
                 trip_request=trip_request)
-            
+
             travel_segments = self.calculate_travel_segments(activities, options)
 
             total_activity_cost: float = sum(a.estimated_cost for a in activities)
@@ -123,7 +126,7 @@ class ScheduleBuilder:
 
         return daily_itineraries
 
-    def _build_day_activities(self, 
+    def _build_day_activities(self,
                               all_places: list[Place],
                               available_places: list[Place],
                               current_date: date,
@@ -143,10 +146,10 @@ class ScheduleBuilder:
         extend_unique_until(landmarks, _items_of_type(all_places, Landmark), 5, key=lambda x: x.id)
         extend_unique_until(establishments, _items_of_type(all_places, Establishment), 4, key=lambda x: x.id)
 
-        prompt_landmarks = [x.model_dump() for x in landmarks] 
-        prompt_establishments = [x.model_dump() for x in establishments] 
+        prompt_landmarks = [x.model_dump() for x in landmarks]
+        prompt_establishments = [x.model_dump() for x in establishments]
         prompt_events = [x.model_dump() for x in events]
-        
+
         prompt = f"""
         Consider the following places:
         - Landmarks: 
@@ -164,15 +167,15 @@ class ScheduleBuilder:
         - Group Type: {trip_request.trip_type.value}
         - The day's theme: {theme}
         """
-        
+
         role = f"""
         You are a Travel Consultant based in {trip_request.destination}.
         Your job is to design personalized travel plans
         """
-        
+
         response = (self._llm
-                    .with_structured_output(schema=DailyActivities)
-                    .invoke(input=[
+        .with_structured_output(schema=DailyActivities)
+        .invoke(input=[
             SystemMessage(content=role),
             HumanMessage(content=prompt)
         ]))
@@ -182,7 +185,8 @@ class ScheduleBuilder:
                 place=next((place for place in all_places if place.id == activity.place_id)),
                 start_time=datetime.combine(current_date, activity.start_time),
                 duration_hours=activity.duration_hours
-            ) for activity in (response.activities if isinstance(response, DailyActivities) else (response if isinstance(response, list) else None))
+            ) for activity in (response.activities if isinstance(response, DailyActivities) else (
+                response if isinstance(response, list) else None))
         ]
 
     def _get_travel_segment_options(self) -> TravelSegmentOptions:
@@ -209,10 +213,10 @@ class ScheduleBuilder:
         for i in range(len(activities) - 1):
             current_activity = activities[i]
             next_activity = activities[i + 1]
-            
+
             if current_activity.coordinates is None or next_activity.coordinates is None:
                 continue
-                
+
             # This can happen, we skip here
             if current_activity.start_time == next_activity.start_time:
                 continue

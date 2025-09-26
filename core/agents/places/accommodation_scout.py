@@ -134,4 +134,4 @@ class AccommodationScoutAgent(BaseAgent):
 
     @staticmethod
     def _expand_search(state: AccommodationState) -> dict[str, SearchInfo]:
-        return { 'local_info': state.local_info.expand_radius(7_500) }
+        return {'local_info': state.local_info.expand_radius(7_500)}

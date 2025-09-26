@@ -15,4 +15,3 @@ def estimate_place_cost(place: Place) -> float:
             return min(options)
         case _:
             return 0
-

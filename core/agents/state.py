@@ -13,16 +13,17 @@ from core.tools.tools import get_available_tools
 class SearchInfo(BaseModel):
     center: Coordinates = Field(default=Coordinates(0, 0))
     radius: int = Field(ge=0, le=100_000, default=0)
-    
+
     def expand_radius(self, increment: int) -> Self:
         return SearchInfo(
             center=self.center,
             radius=min(100_000, self.radius + increment)
         )
 
+
 def determine_search(req: TripRequest, llm: Runnable) -> SearchInfo:
     min_radius = 7_500
-    
+
     prompt = f"""
     You are selecting a geographic search circle for downstream place discovery. The destination is "{req.destination}".
     
@@ -47,7 +48,7 @@ def determine_search(req: TripRequest, llm: Runnable) -> SearchInfo:
     # noinspection PyTypeChecker
     response = agent.invoke(input={'messages': [HumanMessage(content=prompt)]})
     structured_response = response['structured_response']
-    
+
     assert isinstance(structured_response, SearchInfo)
-    
+
     return structured_response

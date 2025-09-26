@@ -44,10 +44,12 @@ class MissingEstablishmentDetails(BaseModel):
         ],
     )
 
+
 class EstablishmentDetails(BaseModel):
     establishments: List[MissingEstablishmentDetails] = Field(
         description='A list of establishments with no missing information'
     )
+
 
 class EstablishmentState(BaseModel):
     trip_request: TripRequest = Field(description='The initial trip request of the user')
@@ -68,7 +70,7 @@ class EstablishmentState(BaseModel):
         default=None
     )
     local_info: SearchInfo = Field()
-    
+
 
 class EstablishmentScoutAgent(BaseAgent):
     """
@@ -94,7 +96,7 @@ class EstablishmentScoutAgent(BaseAgent):
         workflow.add_node('generate_report', self._generate_report)
 
         workflow.set_entry_point('search_establishments')
-        
+
         workflow.add_edge('expand_search_info', 'search_establishments')
 
         workflow.add_conditional_edges(
@@ -118,23 +120,23 @@ class EstablishmentScoutAgent(BaseAgent):
         workflow.set_finish_point('generate_report')
 
         return workflow
-    
+
     @staticmethod
     def _has_more_establishments_to_fill_out(state: EstablishmentState) -> Literal['yes', 'no']:
         return 'yes' if state.index < len(state.establishments) else 'no'
-    
+
     def _fill_out_missing_establishment_info(self, state: EstablishmentState) -> dict[str, list[Establishment] | int]:
         agent = create_react_agent(
             model=self._llm,
             tools=get_available_tools(),
             response_format=EstablishmentDetails
         )
-        
+
         start = state.index
         end = min(len(state.establishments), state.index + 20)
-        
-        self._log.info(f'🍽️ Gathering additional information for establishments #{start+1} - #{end}')
-        
+
+        self._log.info(f'🍽️ Gathering additional information for establishments #{start + 1} - #{end}')
+
         scoped_establishments = state.establishments[start:end]
 
         prompt_context = {
@@ -162,12 +164,11 @@ class EstablishmentScoutAgent(BaseAgent):
         structured_response = response['structured_response']
 
         if isinstance(structured_response, list) and isinstance(structured_response[0], MissingEstablishmentDetails):
-             return { 'extra_establishment_details': structured_response, 'index': end }
+            return {'extra_establishment_details': structured_response, 'index': end}
         elif isinstance(structured_response, EstablishmentDetails):
-            return { 'extra_establishment_details': structured_response.establishments, 'index': end }
+            return {'extra_establishment_details': structured_response.establishments, 'index': end}
 
         raise ValueError(f'Invalid agent output for EstablishmentReport: {type(structured_response)}')
-        
 
     def _needs_to_search_for_more_establishments(self, state: EstablishmentState) -> Literal['yes', 'no']:
         state.establishments_to_retrieve -= len(state.establishments)
@@ -182,11 +183,11 @@ class EstablishmentScoutAgent(BaseAgent):
 
     def _expand_search(self, state: EstablishmentState) -> dict[str, SearchInfo]:
         self._log.info('Expanding search')
-        return { 'local_info': state.local_info.expand_radius(5_000) }
+        return {'local_info': state.local_info.expand_radius(5_000)}
 
     def _search_establishments(self, state: EstablishmentState) -> dict[str, list[Place]]:
         self._log.info('🍴 Searching for establishment through Foursquare')
-        
+
         search_request = PlaceSearchRequest(
             center=require(state.local_info).center,
             radius=require(state.local_info).radius,
@@ -197,25 +198,25 @@ class EstablishmentScoutAgent(BaseAgent):
         response = require(self._client.invoke(search_request))
 
         establishments = [convert_fsq_to_place(fsq) for fsq in response.results]
-        
+
         self._log.info(f'🍴 Got {len(establishments)} establishments')
-        
+
         return {'establishments': establishments}
 
     def _generate_report(self, state: EstablishmentState) -> dict[str, EstablishmentReport]:
         report: list[Establishment] = []
-        
+
         self._log.info('🍸 Generating final establishment report')
-        
+
         for details in state.extra_establishment_details:
             target = next(x for x in state.establishments if x.id == details.establishment_id)
             establishment_dict = target.model_dump()
             details_dict = details.model_dump()
-            
+
             # Join order matters here, right dict wins on key conflicts!
-            report.append(Establishment.model_validate(establishment_dict | details_dict)) 
-        
-        return { 'report': EstablishmentReport(report=report) }
+            report.append(Establishment.model_validate(establishment_dict | details_dict))
+
+        return {'report': EstablishmentReport(report=report)}
 
     def invoke(self, request: TripRequest, info: SearchInfo) -> EstablishmentReport:
         self._log.info("🔎 Researching establishments...")

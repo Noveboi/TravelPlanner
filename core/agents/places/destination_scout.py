@@ -22,7 +22,7 @@ class DestinationState(BaseModel):
     landmarks: LandmarksReport = Field()
     establishments: EstablishmentReport = Field()
     events: EventsReport = Field()
-    accommodations: AccommodationReport = Field(),
+    accommodations: AccommodationReport = Field()
     info: SearchInfo = Field()
 
 
@@ -67,7 +67,7 @@ class DestinationScoutAgent(BaseAgent):
         workflow.add_node('events', self._research_events)
         workflow.add_node('establishments', self._research_establishments)
         workflow.add_node('accommodations', self._research_accommodations)
-        
+
         workflow.set_entry_point('get_search_info')
 
         workflow.add_edge('get_search_info', 'landmarks')
@@ -83,13 +83,12 @@ class DestinationScoutAgent(BaseAgent):
 
     def _get_search_info(self, state: DestinationState) -> dict[str, SearchInfo]:
         self._log.info('🔎 Getting search info...')
-        
-        info = determine_search(state.trip_request, self._llm)
-        
-        self._log.info(f'🔎 Got search info: R = {info.radius}, LL = {info.center.to_string()}')
-        
-        return { 'info': info }
 
+        info = determine_search(state.trip_request, self._llm)
+
+        self._log.info(f'🔎 Got search info: R = {info.radius}, LL = {info.center.to_string()}')
+
+        return {'info': info}
 
     def _research_landmarks(self, state: DestinationState) -> dict[str, LandmarksReport]:
         scout = LandmarkScoutAgent(self._llm, self._client)

@@ -27,6 +27,7 @@ class ImprovedLandmark(BaseModel):
 class ImprovedLandmarks(BaseModel):
     list: List[ImprovedLandmark] = Field()
 
+
 class LandmarksState(BaseModel):
     trip_request: TripRequest = Field()
     landmarks_to_retrieve: int = Field()
@@ -41,6 +42,7 @@ class LandmarksState(BaseModel):
     )
     local_info: SearchInfo = Field()
 
+
 class LandmarkScoutAgent(BaseAgent):
     """
     Researches landmarks for the user's destination.
@@ -51,19 +53,19 @@ class LandmarkScoutAgent(BaseAgent):
         self._client = client
         self._llm = llm
         self.workflow = self._create_workflow().compile()
-        
+
     def _create_workflow(self) -> StateGraph[LandmarksState, Any, LandmarksState]:
         workflow = StateGraph(
             input_schema=LandmarksState,
             state_schema=LandmarksState,
             output_schema=LandmarksState
         )
-        
+
         workflow.add_node('expand_search_info', self._expand_search)
         workflow.add_node('search_landmarks', self._search_landmarks)
         workflow.add_node('polish_results', self._polish_results)
         workflow.add_node('generate_report', self._generate_report)
-        
+
         workflow.set_entry_point('search_landmarks')
         workflow.add_conditional_edges(
             'search_landmarks',
@@ -77,9 +79,9 @@ class LandmarkScoutAgent(BaseAgent):
         workflow.add_edge('expand_search_info', 'search_landmarks')
         workflow.add_edge('polish_results', 'generate_report')
         workflow.set_finish_point('generate_report')
-        
+
         return workflow
-    
+
     def _polish_results(self, state: LandmarksState) -> LandmarksState:
         self._log.info('🏞️ Polishing search results for landmarks')
 
@@ -109,7 +111,7 @@ class LandmarkScoutAgent(BaseAgent):
         )
 
         # noinspection PyTypeChecker
-        response = agent.invoke({ "messages": [{ "role": "user", "content": to_json(user) }]})['structured_response']
+        response = agent.invoke({"messages": [{"role": "user", "content": to_json(user)}]})['structured_response']
 
         if isinstance(response, list):
             state.improved_landmarks = ImprovedLandmarks(list=response)
@@ -121,7 +123,7 @@ class LandmarkScoutAgent(BaseAgent):
             raise ValueError(f'Incorrect agent output: {type(response)}')
 
         return state
-    
+
     def _generate_report(self, state: LandmarksState) -> LandmarksState:
         self._log.info('📃 Generating landmark report...')
 
@@ -130,31 +132,30 @@ class LandmarkScoutAgent(BaseAgent):
             Landmark(**require(by_id.get(improved.place_id)).model_dump() | improved.model_dump())
             for improved in require(state.improved_landmarks).list
         ]
-        
+
         state.report = LandmarksReport(report=landmarks)
-        
+
         return state
-        
- 
+
     @staticmethod
     def _needs_more_landmarks(state: LandmarksState) -> Literal['yes', 'no']:
         return 'yes' if len(state.landmarks) < 50 else 'no'
-        
+
     def _search_landmarks(self, state: LandmarksState) -> dict[str, list[Place]]:
         self._log.info('🔎 Searching for landmarks...')
-        
+
         req = PlaceSearchRequest(
             center=require(state.local_info).center,
             radius=require(state.local_info).radius,
             limit=state.landmarks_to_retrieve,
             query='landmarks'
         )
-        
+
         fsq_places: list[FoursquarePlace] = require(self._client.invoke(req)).results
         places: list[Place] = [convert_fsq_to_place(p) for p in fsq_places]
-        
-        return { 'landmarks': places }
-        
+
+        return {'landmarks': places}
+
     def _expand_search(self, state: LandmarksState) -> LandmarksState:
         self._log.info('Expanding search...')
         state.local_info = state.local_info.expand_radius(10_000)
@@ -162,16 +163,16 @@ class LandmarkScoutAgent(BaseAgent):
 
     def invoke(self, request: TripRequest, info: SearchInfo) -> LandmarksReport:
         self._log.info('🔎 Researching landmarks...')
-        
+
         initial_state = LandmarksState(
             trip_request=request,
             local_info=info,
             landmarks_to_retrieve=min(50, request.total_days * 6),
         )
-        
+
         final_state = self.workflow.invoke(input=initial_state)
         report = final_state['report']
-        
+
         assert isinstance(report, LandmarksReport)
-        
+
         return report

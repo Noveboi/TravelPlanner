@@ -14,7 +14,7 @@ class ItineraryActivityFactory:
             duration_hours: float,
             notes: list[str] | None = None
     ) -> ItineraryActivity:
-        
+
         end_time = start_time + timedelta(hours=duration_hours)
 
         # Determine the activity type

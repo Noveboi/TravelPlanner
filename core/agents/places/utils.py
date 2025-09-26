@@ -17,13 +17,15 @@ def convert_fsq_to_place(fsq: FoursquarePlace):
         weather_dependent=False
     )
 
+
 def to_json(obj: Any) -> str:
     import json
     return json.dumps(obj, ensure_ascii=False)
 
+
 def safe_parse_json_array(text: str) -> list[dict] | None:
     import json, re
-    
+
     # Try the whole text first
     try:
         data = json.loads(text)
@@ -34,7 +36,7 @@ def safe_parse_json_array(text: str) -> list[dict] | None:
             return data["report"]
     except Exception:
         pass
-    
+
     # Heuristic: extract the first JSON array in the text
     match = re.search(r"\[\s*{.*}\s*]", text, flags=re.S)
     if match:
