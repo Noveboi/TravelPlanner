@@ -1,7 +1,7 @@
 ﻿import logging
 import uuid
 from datetime import timedelta, datetime, time, date
-from typing import TypeVar, Any, Type, cast, List, Iterable, Callable
+from typing import TypeVar, cast, List, Iterable, Callable
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from core.agents.itinerary.activities import ItineraryActivityFactory
 from core.agents.itinerary.spherical_distance import haversine_distance
 from core.agents.itinerary.themes import DailyThemes
+from core.agents.utils import items_of_type
 from core.models.itinerary import DayItinerary, ActivityType, ItineraryActivity, TransportMode, TravelSegment
 from core.models.places import Place, Establishment, Landmark, Event
 from core.models.trip import TripRequest
@@ -21,11 +22,6 @@ class TravelSegmentOptions(BaseModel):
 
 
 T = TypeVar('T')
-
-
-def _items_of_type(items: list[Any], t: Type[T]) -> list[T]:
-    return [x for x in items if isinstance(x, t)]
-
 
 def extend_unique_until(
         dest: list[T],
@@ -136,15 +132,15 @@ class ScheduleBuilder:
         self._logger.info(f'🤔 Building activities with {len(available_places)} available places')
 
         # Separate places by type
-        landmarks = _items_of_type(available_places, Landmark)
-        establishments = _items_of_type(available_places, Establishment)
-        events = [x for x in _items_of_type(available_places, Event) if x.date_and_time.date() == date]
+        landmarks = items_of_type(available_places, Landmark)
+        establishments = items_of_type(available_places, Establishment)
+        events = [x for x in items_of_type(available_places, Event) if x.date_and_time.date() == date]
 
         landmarks.sort(key=lambda x: cast(Landmark, x).priority.value, reverse=True)
         establishments.sort(key=lambda x: cast(Establishment, x).priority.value, reverse=True)
 
-        extend_unique_until(landmarks, _items_of_type(all_places, Landmark), 5, key=lambda x: x.id)
-        extend_unique_until(establishments, _items_of_type(all_places, Establishment), 4, key=lambda x: x.id)
+        extend_unique_until(landmarks, items_of_type(all_places, Landmark), 5, key=lambda x: x.id)
+        extend_unique_until(establishments, items_of_type(all_places, Establishment), 4, key=lambda x: x.id)
 
         prompt_landmarks = [x.model_dump() for x in landmarks]
         prompt_establishments = [x.model_dump() for x in establishments]

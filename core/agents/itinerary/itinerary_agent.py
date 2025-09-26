@@ -11,7 +11,7 @@ from core.agents.itinerary.day_itinerary_builder import ScheduleBuilder
 from core.agents.itinerary.themes import DailyThemes, generate_daily_themes
 from core.agents.null_checks import require
 from core.models.itinerary import DayItinerary, TripItinerary
-from core.models.places import DestinationReport, Place, Accommodation
+from core.models.places import DestinationReport, Accommodation
 from core.models.trip import TripRequest
 
 
@@ -31,10 +31,6 @@ class ItineraryState(BaseModel):
     )
     destination_report: DestinationReport = Field(
         description="Contains detailed place information on accommodations, establishments, events and landmarks"
-    )
-    selected_places: List[Place] | None = Field(
-        description="A list of filtered and prioritized places, curated algorithmically",
-        default=None
     )
     daily_themes: DailyThemes | None = Field(default=None)
     accommodation: Accommodation | None = Field(
@@ -66,9 +62,11 @@ class ItineraryBuilderAgent(BaseAgent):
         self._llm = llm
 
     def invoke(self, request: TripRequest, destination_report: DestinationReport) -> TripItinerary:
-        final_state = self.workflow.invoke(
-            input=ItineraryAgentInput(trip_request=request, destination_report=destination_report)
-        )
+        state_input = ItineraryAgentInput(
+            trip_request=request, 
+            destination_report=destination_report)
+        
+        final_state = self.workflow.invoke(input=state_input)
 
         return final_state['final_itinerary']
 
@@ -82,7 +80,6 @@ class ItineraryBuilderAgent(BaseAgent):
          .add_node('plan_themes', self._plan_daily_themes)
          .add_node('allocate_accommodation', self._allocate_accommodation)
          .add_node('build_daily_schedules', self._build_daily_schedules)
-         # .add_node('optimize_routes', self._optimize_routes)
          .add_node('validate_budget_constraints', self._validate_budget_constraints)
          .add_node('finalize_itinerary', self._finalize_itinerary))
 
@@ -91,8 +88,6 @@ class ItineraryBuilderAgent(BaseAgent):
          .add_edge('plan_themes', 'allocate_accommodation')
          .add_edge('allocate_accommodation', 'build_daily_schedules')
          .add_edge('build_daily_schedules', 'validate_budget_constraints')
-         # .add_edge('build_daily_schedules', 'optimize_routes')
-         # .add_edge('optimize_routes', 'validate_budget_constraints')
          .add_conditional_edges(
             'validate_budget_constraints',
             self._should_replan,
@@ -109,10 +104,7 @@ class ItineraryBuilderAgent(BaseAgent):
         """Plan themes for each day based on interests and selected places"""
         self._log.info("❓ Generate themes for each day")
 
-        state.daily_themes = generate_daily_themes(
-            self._llm,
-            state.trip_request,
-            require(state.selected_places))
+        state.daily_themes = generate_daily_themes(self._llm, state.trip_request, state.destination_report.all_places)
 
         return state
 
@@ -132,32 +124,10 @@ class ItineraryBuilderAgent(BaseAgent):
 
         state.daily_itineraries = schedule_builder.build(
             state.trip_request,
-            require(state.selected_places),
+            state.destination_report.all_places,
             require(state.daily_themes))
 
         return state
-
-    # def _optimize_routes(self, state: ItineraryState) -> ItineraryState:
-    #     """Optimize the order of activities within each day for minimal travel time"""
-    #     self._log.info('🗺️📌 Routing and optimizing activity order')
-    # 
-    #     for day_itinerary in state.daily_itineraries:
-    #         activities_with_coordinates = [a for a in day_itinerary.activities if a.coordinates is not None]
-    # 
-    #         if len(activities_with_coordinates) <= 2:
-    #             continue
-    # 
-    #         optimized_activities = optimize_activity_order(
-    #             activities_with_coordinates,
-    #             require(state.selected_places))
-    # 
-    #         # Replace the activities in the day
-    #         other_activities = [a for a in day_itinerary.activities if a.coordinates is None]
-    # 
-    #         day_itinerary.activities = optimized_activities + other_activities
-    #         day_itinerary.activities.sort(key=lambda x: x.start_time)
-    # 
-    #     return state
 
     def _validate_budget_constraints(self, state: ItineraryState) -> ItineraryState:
         self._log.info("💵 Validating budget constraints")

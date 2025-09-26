@@ -6,6 +6,7 @@ from typing import List, Optional, Dict
 from pydantic import BaseModel, Field
 
 from .geography import Coordinates
+from ..agents.utils import cast_items
 
 
 class PlaceCategory(str, Enum):
@@ -132,3 +133,12 @@ class DestinationReport(BaseModel):
     establishments: EstablishmentReport = Field()
     events: EventsReport = Field()
     accommodations: AccommodationReport = Field()
+    
+    @property
+    def all_places(self) -> list[Place]:
+        return (
+            cast_items(self.landmarks.report, Place) +
+            cast_items(self.establishments.report, Place) +
+            cast_items(self.events.report, Place) +
+            cast_items(self.accommodations.report, Place)
+        )
