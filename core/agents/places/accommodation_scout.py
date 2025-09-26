@@ -60,9 +60,9 @@ class AccommodationScoutAgent(BaseAgent):
                 'found_accommodations': 'generate_accommodation_report'
             }
         )
-        
+
         workflow.add_edge('expand_search', 'find_accommodations')
-        
+
         workflow.set_finish_point('generate_accommodation_report')
 
         return workflow

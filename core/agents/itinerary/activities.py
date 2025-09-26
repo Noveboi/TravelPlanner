@@ -3,7 +3,6 @@
 from core.agents.itinerary.places import estimate_place_cost
 from core.models.itinerary import ItineraryActivity, ActivityType
 from core.models.places import Place, Establishment, Event, BookingType
-from core.tools.spherical_distance import haversine_distance
 
 
 class ItineraryActivityFactory:

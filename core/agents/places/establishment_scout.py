@@ -145,7 +145,8 @@ class EstablishmentScoutAgent(BaseAgent):
 
         return {'extra_establishment_details': agent_response.establishments}
 
-    def _needs_to_search_for_more_establishments(self, state: EstablishmentState) -> Literal['needs_more_establishments', 'ok']:
+    def _needs_to_search_for_more_establishments(self, state: EstablishmentState) -> Literal[
+        'needs_more_establishments', 'ok']:
         state.establishments_to_retrieve -= len(state.establishments)
 
         est_left = state.establishments_to_retrieve
@@ -185,10 +186,10 @@ class EstablishmentScoutAgent(BaseAgent):
 
         for details in state.extra_establishment_details:
             target = next(x for x in state.establishments if x.id == details.establishment_id)
-            
+
             if not target.coordinates or not details.coordinates:
                 self._log.error(f'{target.name} is missing coordinates ({target.coordinates}, {details.coordinates})')
-                
+
             establishment_dict = target.model_dump()
             details_dict = details.model_dump()
 

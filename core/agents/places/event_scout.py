@@ -1,9 +1,8 @@
-﻿from langchain_core.language_models import LanguageModelInput, BaseChatModel
-from langchain_core.messages import SystemMessage, HumanMessage
+﻿from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import HumanMessage
 
 from core.models.places import EventsReport
 from core.models.trip import TripRequest
-from core.tools.tools import get_available_tools
 from ..base import BaseAgent
 from ...utils import invoke_react_agent
 
@@ -32,7 +31,7 @@ class EventScoutAgent(BaseAgent):
                 Events include festivals, social, cultural & arts, sports, recreation, concerts, theatre, cinema, and more...
                 Return a maximum of 15 of the most relevant events to the travelers.
                 """)
-                ],
+            ],
             schema=EventsReport
         )
 

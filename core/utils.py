@@ -54,7 +54,7 @@ def invoke_react_agent(
 
     handler = LoggingHandler()
     attempts = 1
-    
+
     while attempts <= 3:
         try:
             # noinspection PyTypeChecker
@@ -64,25 +64,25 @@ def invoke_react_agent(
                     "callbacks": [handler],
                     "recursion_limit": 100
                 })
-    
+
             structured_response: TOutput | None = response.get("structured_response")
-        
+
             if structured_response is None:
                 log.error("Agent did not return a structured response.")
                 raise ValueError(f"Agent did not return a structured response. Dictionary had keys: {response.keys()}")
-        
+
             return structured_response
         except ValueError as e:
             message = str(e)
             log.error(f'❌ ReAct agent error: {message}')
             attempts += 1
-            
+
             if "does not have a 'parsed' field nor a 'refusal' field" in message:
                 log.error('❌ LLM refused to fulfill our request but did not specify why. Retrying the request')
                 continue
-            
+
             raise e
-        
+
     raise RuntimeError('Ran out of attempts')
 
 

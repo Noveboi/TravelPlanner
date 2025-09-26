@@ -6,7 +6,6 @@ from typing import TypeVar, cast, List, Iterable, Callable
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage
 from pydantic import BaseModel, Field
-from tenacity import before_log
 
 from core.agents.itinerary.activities import ItineraryActivityFactory
 from core.agents.itinerary.themes import DailyThemes
@@ -181,10 +180,10 @@ class ScheduleBuilder:
         Append items from src into dest until len(dest) == target_count,
         skipping duplicates. Key(item) determines duplicates 
         """
-        
+
         seen_keys = {key(x) for x in dest}
         added = 0
-        
+
         for item in src:
             if len(dest) >= target_count:
                 break
