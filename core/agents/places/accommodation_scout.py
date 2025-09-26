@@ -9,7 +9,8 @@ from pydantic import BaseModel, Field
 
 from core.agents.base import BaseAgent
 from core.agents.null_checks import require
-from core.agents.places.utils import convert_fsq_to_place, get_search_info, SearchInformation
+from core.agents.places.utils import convert_fsq_to_place
+from core.agents.state import SearchInfo
 from core.models.places import Place, PlaceCategory, AccommodationReport
 from core.models.trip import TripRequest
 from core.tools.foursquare import FoursquareApiClient, PlaceSearchRequest
@@ -18,10 +19,6 @@ from core.tools.tools import get_available_tools
 
 class AccommodationState(BaseModel):
     trip_request: TripRequest = Field(description='The initial trip request of the user')
-    search_info: SearchInformation | None = Field(
-        description='Technical parameters for searching accommodations in the destination area',
-        default=None
-    )
     accommodations: Annotated[list[Place], operator.add] = Field(
         description='A list of the current collected accommodation places.',
         default_factory=list
@@ -30,6 +27,7 @@ class AccommodationState(BaseModel):
         description='The final report that will be used',
         default=None
     )
+    local_info: SearchInfo = Field()
 
 
 class AccommodationScoutAgent(BaseAgent):
@@ -50,17 +48,16 @@ class AccommodationScoutAgent(BaseAgent):
             output_schema=AccommodationState
         )
 
-        workflow.add_node('get_destination_info', self._get_destination_information_for_search)
+        workflow.add_node('expand_search', self._expand_search)
         workflow.add_node('find_accommodations', self._search_for_accommodations)
         workflow.add_node('generate_accommodation_report', self._get_finalized_accommodation_report)
 
-        workflow.set_entry_point('get_destination_info')
-        workflow.add_edge('get_destination_info', 'find_accommodations')
+        workflow.set_entry_point('find_accommodations')
         workflow.add_conditional_edges(
             'find_accommodations',
             self._should_expand_search,
             {
-                True: 'find_accommodations',
+                True: 'expand_search',
                 False: 'generate_accommodation_report'
             }
         )
@@ -68,11 +65,12 @@ class AccommodationScoutAgent(BaseAgent):
 
         return workflow
 
-    def invoke(self, request: TripRequest) -> AccommodationReport:
+    def invoke(self, request: TripRequest, info: SearchInfo) -> AccommodationReport:
         self._log.info('🔎 Researching accommodations')
 
         initial_state = AccommodationState(
-            trip_request=request
+            trip_request=request,
+            local_info=info
         )
 
         final_state = self._workflow.invoke(input=initial_state)
@@ -122,8 +120,8 @@ class AccommodationScoutAgent(BaseAgent):
     def _search_for_accommodations(self, state: AccommodationState) -> dict[str, list[Place]]:
 
         place_search_request = PlaceSearchRequest(
-            center=require(state.search_info).reasonable_center,
-            radius=require(state.search_info).search_radius,
+            center=require(state.local_info).center,
+            radius=require(state.local_info).radius,
             place_categories=[PlaceCategory.HOTEL],
             limit=35
         )
@@ -134,6 +132,6 @@ class AccommodationScoutAgent(BaseAgent):
 
         return {'accommodations': accommodations}
 
-    def _get_destination_information_for_search(self, state: AccommodationState) -> dict[str, SearchInformation]:
-        info = get_search_info(state.trip_request, self._llm, self._log, state.search_info)
-        return {'search_info': info}
+    @staticmethod
+    def _expand_search(state: AccommodationState) -> dict[str, SearchInfo]:
+        return { 'local_info': state.local_info.expand_radius(7_500) }

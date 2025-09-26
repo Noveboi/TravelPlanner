@@ -10,7 +10,8 @@ from pydantic import BaseModel, Field
 
 from core.agents.base import BaseAgent
 from core.agents.null_checks import require
-from core.agents.places.accommodation_scout import SearchInformation, get_search_info, convert_fsq_to_place
+from core.agents.places.accommodation_scout import convert_fsq_to_place
+from core.agents.state import SearchInfo
 from core.models.places import EstablishmentReport, Place, Establishment, Priority
 from core.models.trip import TripRequest
 from core.tools.foursquare import FoursquareApiClient, PlaceSearchRequest
@@ -53,10 +54,6 @@ class EstablishmentState(BaseModel):
     establishments_to_retrieve: int = Field(
         description='The number of establishments left to retrieve before the list is considered full'
     )
-    search_info: SearchInformation | None = Field(
-        description="Technical parameters for searching establishments in the destination area",
-        default=None
-    )
     establishments: Annotated[list[Place], operator.add] = Field(
         description='A list of the currently collected establishments',
         default_factory=list
@@ -70,7 +67,8 @@ class EstablishmentState(BaseModel):
         description='The final report that will be used',
         default=None
     )
-
+    local_info: SearchInfo = Field()
+    
 
 class EstablishmentScoutAgent(BaseAgent):
     """
@@ -81,8 +79,7 @@ class EstablishmentScoutAgent(BaseAgent):
         super().__init__('establishment_scout')
         self._llm = llm.bind_tools(get_available_tools())
         self._client = client
-        self._structured_llm = llm.with_structured_output(schema=EstablishmentReport)
-        self._workflow = self._create_workflow().compile()
+        self.workflow = self._create_workflow().compile()
 
     def _create_workflow(self) -> StateGraph[EstablishmentState, Any, EstablishmentState]:
         workflow = StateGraph(
@@ -91,19 +88,20 @@ class EstablishmentScoutAgent(BaseAgent):
             output_schema=EstablishmentState
         )
 
-        workflow.add_node('create_search_info', self._get_search_info)
+        workflow.add_node('expand_search_info', self._expand_search)
         workflow.add_node('search_establishments', self._search_establishments)
         workflow.add_node('fill_out_missing_establishment_info', self._fill_out_missing_establishment_info)
         workflow.add_node('generate_report', self._generate_report)
 
-        workflow.set_entry_point('create_search_info')
-        workflow.add_edge('create_search_info', 'search_establishments')
+        workflow.set_entry_point('search_establishments')
+        
+        workflow.add_edge('expand_search_info', 'search_establishments')
 
         workflow.add_conditional_edges(
             'search_establishments',
             self._needs_to_search_for_more_establishments,
             {
-                'yes': 'create_search_info',
+                'yes': 'expand_search_info',
                 'no': 'fill_out_missing_establishment_info'
             }
         )
@@ -182,18 +180,18 @@ class EstablishmentScoutAgent(BaseAgent):
 
         return 'no'
 
-    def _get_search_info(self, state: EstablishmentState) -> dict[str, SearchInformation]:
-        info = get_search_info(state.trip_request, self._llm, self._log, state.search_info)
-        return {'search_info': info}
+    def _expand_search(self, state: EstablishmentState) -> dict[str, SearchInfo]:
+        self._log.info('Expanding search')
+        return { 'local_info': state.local_info.expand_radius(5_000) }
 
     def _search_establishments(self, state: EstablishmentState) -> dict[str, list[Place]]:
         self._log.info('🍴 Searching for establishment through Foursquare')
-
+        
         search_request = PlaceSearchRequest(
-            center=require(state.search_info).reasonable_center,
-            radius=require(state.search_info).search_radius,
-            query='dining',
-            limit=state.establishments_to_retrieve
+            center=require(state.local_info).center,
+            radius=require(state.local_info).radius,
+            limit=state.establishments_to_retrieve,
+            query='dining'
         )
 
         response = require(self._client.invoke(search_request))
@@ -219,15 +217,16 @@ class EstablishmentScoutAgent(BaseAgent):
         
         return { 'report': EstablishmentReport(report=report) }
 
-    def invoke(self, request: TripRequest) -> EstablishmentReport:
+    def invoke(self, request: TripRequest, info: SearchInfo) -> EstablishmentReport:
         self._log.info("🔎 Researching establishments...")
 
         initial_state = EstablishmentState(
             trip_request=request,
-            establishments_to_retrieve=min(20, request.total_days * 4)
+            establishments_to_retrieve=min(50, request.total_days * 5),
+            local_info=info
         )
 
-        final_state = self._workflow.invoke(input=initial_state)
+        final_state = self.workflow.invoke(input=initial_state)
         report = final_state['report']
 
         assert isinstance(report, EstablishmentReport)

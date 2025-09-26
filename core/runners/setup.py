@@ -5,6 +5,7 @@ from datetime import date
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 
+from core.agents.state import SearchInfo
 from core.models.trip import TripType, TripRequest
 
 log = logging.getLogger('main')

@@ -1,7 +1,7 @@
 ﻿from typing import Any
 
 from langchain_core.language_models import BaseChatModel
-from langgraph.constants import START, END
+from langgraph.constants import END
 from langgraph.graph import StateGraph
 from pydantic import BaseModel, Field
 
@@ -10,6 +10,7 @@ from core.agents.places.accommodation_scout import AccommodationScoutAgent
 from core.agents.places.establishment_scout import EstablishmentScoutAgent
 from core.agents.places.event_scout import EventScoutAgent
 from core.agents.places.landmark_scout import LandmarkScoutAgent
+from core.agents.state import SearchInfo, determine_search
 from core.models.places import DestinationReport, LandmarksReport, EstablishmentReport, EventsReport, \
     AccommodationReport
 from core.models.trip import TripRequest
@@ -21,7 +22,8 @@ class DestinationState(BaseModel):
     landmarks: LandmarksReport = Field()
     establishments: EstablishmentReport = Field()
     events: EventsReport = Field()
-    accommodations: AccommodationReport = Field()
+    accommodations: AccommodationReport = Field(),
+    info: SearchInfo = Field()
 
 
 class DestinationScoutAgent(BaseAgent):
@@ -42,6 +44,7 @@ class DestinationScoutAgent(BaseAgent):
             establishments=EstablishmentReport(report=[]),
             events=EventsReport(report=[]),
             accommodations=AccommodationReport(report=[]),
+            info=SearchInfo()
         )
 
         final_state = self.workflow.invoke(input=initial_state)
@@ -59,15 +62,18 @@ class DestinationScoutAgent(BaseAgent):
             input_schema=DestinationState,
             output_schema=DestinationState)
 
+        workflow.add_node('get_search_info', self._get_search_info)
         workflow.add_node('landmarks', self._research_landmarks)
         workflow.add_node('events', self._research_events)
         workflow.add_node('establishments', self._research_establishments)
         workflow.add_node('accommodations', self._research_accommodations)
+        
+        workflow.set_entry_point('get_search_info')
 
-        workflow.add_edge(START, 'landmarks')
-        workflow.add_edge(START, 'events')
-        workflow.add_edge(START, 'establishments')
-        workflow.add_edge(START, 'accommodations')
+        workflow.add_edge('get_search_info', 'landmarks')
+        workflow.add_edge('get_search_info', 'events')
+        workflow.add_edge('get_search_info', 'establishments')
+        workflow.add_edge('get_search_info', 'accommodations')
         workflow.add_edge('landmarks', END)
         workflow.add_edge('events', END)
         workflow.add_edge('establishments', END)
@@ -75,9 +81,19 @@ class DestinationScoutAgent(BaseAgent):
 
         return workflow
 
+    def _get_search_info(self, state: DestinationState) -> dict[str, SearchInfo]:
+        self._log.info('🔎 Getting search info...')
+        
+        info = determine_search(state.trip_request, self._llm)
+        
+        self._log.info(f'🔎 Got search info: R = {info.radius}, LL = {info.center.to_string()}')
+        
+        return { 'info': info }
+
+
     def _research_landmarks(self, state: DestinationState) -> dict[str, LandmarksReport]:
-        scout = LandmarkScoutAgent(self._llm)
-        result = scout.invoke(state.trip_request)
+        scout = LandmarkScoutAgent(self._llm, self._client)
+        result = scout.invoke(state.trip_request, state.info)
 
         self._log.info(f'✅ Finished Landmarks (found {len(result.report)})')
 
@@ -93,7 +109,7 @@ class DestinationScoutAgent(BaseAgent):
 
     def _research_establishments(self, state: DestinationState) -> dict[str, EstablishmentReport]:
         scout = EstablishmentScoutAgent(self._llm, self._client)
-        result = scout.invoke(state.trip_request)
+        result = scout.invoke(state.trip_request, state.info)
 
         self._log.info(f'✅ Finished Establishments (found {len(result.report)})')
 
@@ -101,7 +117,7 @@ class DestinationScoutAgent(BaseAgent):
 
     def _research_accommodations(self, state: DestinationState) -> dict[str, AccommodationReport]:
         scout = AccommodationScoutAgent(self._llm, self._client)
-        result = scout.invoke(state.trip_request)
+        result = scout.invoke(state.trip_request, state.info)
 
         self._log.info(f'✅ Finished Accommodations (found {len(result.report)})')
 

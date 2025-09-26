@@ -1,20 +1,17 @@
 ﻿import logging
 import uuid
 from datetime import timedelta, datetime, time, date
-from random import shuffle
 from typing import TypeVar, Any, Type, cast, List, Iterable, Callable
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage
-from mypy.state import state
 from pydantic import BaseModel, Field
-from sqlalchemy.sql.coercions import RoleImpl
 
 from core.agents.itinerary.activities import ItineraryActivityFactory
 from core.agents.itinerary.spherical_distance import haversine_distance
 from core.agents.itinerary.themes import DailyThemes
 from core.models.itinerary import DayItinerary, ActivityType, ItineraryActivity, TransportMode, TravelSegment
-from core.models.places import Place, Establishment, Priority, Landmark, Event
+from core.models.places import Place, Establishment, Landmark, Event
 from core.models.trip import TripRequest
 
 
