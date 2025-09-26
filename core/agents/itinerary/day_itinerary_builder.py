@@ -6,14 +6,15 @@ from typing import TypeVar, cast, List, Iterable, Callable
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage
 from pydantic import BaseModel, Field
+from tenacity import before_log
 
 from core.agents.itinerary.activities import ItineraryActivityFactory
 from core.agents.itinerary.themes import DailyThemes
-from core.agents.utils import items_of_type
 from core.models.itinerary import DayItinerary, ActivityType, ItineraryActivity, TransportMode, TravelSegment
 from core.models.places import Place, Establishment, Landmark, Event
 from core.models.trip import TripRequest
 from core.tools.spherical_distance import haversine_distance
+from core.utils import items_of_type
 
 
 class TravelSegmentOptions(BaseModel):
@@ -22,26 +23,6 @@ class TravelSegmentOptions(BaseModel):
 
 
 T = TypeVar('T')
-
-
-def extend_unique_until(
-        dest: list[T],
-        src: Iterable[T],
-        target_count: int,
-        key: Callable[[T], object],
-) -> None:
-    """
-    Append items from src into dest until len(dest) == target_count,
-    skipping duplicates. Key(item) determines duplicates 
-    """
-    seen_keys = {key(x) for x in dest}
-    for item in src:
-        if len(dest) >= target_count:
-            break
-        k = key(item)
-        if k not in seen_keys:
-            dest.append(item)
-            seen_keys.add(k)
 
 
 class ActivitySchedule(BaseModel):
@@ -64,7 +45,7 @@ class DailyActivities(BaseModel):
 
 class ScheduleBuilder:
     def __init__(self, llm: BaseChatModel):
-        self._logger = logging.getLogger(name='day_itinerary_builder')
+        self._log = logging.getLogger(name='day_itinerary_builder')
         self._llm = llm
 
     def build(self, trip_request: TripRequest, places: list[Place], themes: DailyThemes) -> list[DayItinerary]:
@@ -75,9 +56,9 @@ class ScheduleBuilder:
         :param themes: The themes for each day
         """
 
-        self._logger.info('📅 Building itineraries for each day')
-        self._logger.info(f'{len(places)} Available places: {[p.name for p in places]}')
-        self._logger.info(f'Available themes: {themes.list}')
+        self._log.info('📅 Building itineraries for each day')
+        self._log.info(f'{len(places)} Available places: {[p.name for p in places]}')
+        self._log.info(f'Available themes: {themes.list}')
 
         daily_itineraries: list[DayItinerary] = []
         current_date = trip_request.start_date
@@ -86,10 +67,10 @@ class ScheduleBuilder:
         available_places = places.copy()
 
         for day_num, theme in enumerate(themes.list, 1):
-            self._logger.info(f'📅 Building itinerary for day {day_num} (theme: {theme})')
+            self._log.info(f'📅 Building itinerary for day {day_num} (theme: {theme})')
 
             if len(available_places) < 12:
-                self._logger.info('❗ Shortage on available places. Resetting state to include all places.')
+                self._log.info('❗ Shortage on available places. Resetting state to include all places.')
                 available_places = places.copy()  # Make all places available again if we run out of places
 
             activities = self._build_day_activities(
@@ -119,7 +100,10 @@ class ScheduleBuilder:
 
             # Exclude the places from the current day for next days
             day_place_ids = {activity.place_id for activity in activities}
+            self._log.info(f'Removing {len(day_place_ids)} places from pool.')
+            before = len(available_places)
             available_places = [p for p in places if p.id not in day_place_ids]
+            self._log.info(f'Removed {before - len(available_places)} places')
 
         return daily_itineraries
 
@@ -130,18 +114,18 @@ class ScheduleBuilder:
                               trip_request: TripRequest,
                               theme: str
                               ) -> list[ItineraryActivity]:
-        self._logger.info(f'🤔 Building activities with {len(available_places)} available places')
+        self._log.info(f'🤔 Building activities with {len(available_places)} available places')
 
         # Separate places by type
         landmarks = items_of_type(available_places, Landmark)
         establishments = items_of_type(available_places, Establishment)
         events = [x for x in items_of_type(available_places, Event) if x.date_and_time.date() == date]
 
+        self._extend_unique_until(landmarks, items_of_type(all_places, Landmark), 5, key=lambda x: x.id)
+        self._extend_unique_until(establishments, items_of_type(all_places, Establishment), 5, key=lambda x: x.id)
+
         landmarks.sort(key=lambda x: cast(Landmark, x).priority.value, reverse=True)
         establishments.sort(key=lambda x: cast(Establishment, x).priority.value, reverse=True)
-
-        extend_unique_until(landmarks, items_of_type(all_places, Landmark), 5, key=lambda x: x.id)
-        extend_unique_until(establishments, items_of_type(all_places, Establishment), 4, key=lambda x: x.id)
 
         prompt_landmarks = [x.model_dump() for x in landmarks]
         prompt_establishments = [x.model_dump() for x in establishments]
@@ -179,12 +163,39 @@ class ScheduleBuilder:
 
         return [
             ItineraryActivityFactory.from_place(
-                place=next((place for place in all_places if place.id == activity.place_id)),
+                place=next(place for place in all_places if place.id == activity.place_id),
                 start_time=datetime.combine(current_date, activity.start_time),
                 duration_hours=activity.duration_hours
             ) for activity in (response.activities if isinstance(response, DailyActivities) else (
                 response if isinstance(response, list) else None))
         ]
+
+    def _extend_unique_until(
+            self,
+            dest: list[T],
+            src: Iterable[T],
+            target_count: int,
+            key: Callable[[T], object],
+    ) -> None:
+        """
+        Append items from src into dest until len(dest) == target_count,
+        skipping duplicates. Key(item) determines duplicates 
+        """
+        
+        seen_keys = {key(x) for x in dest}
+        added = 0
+        
+        for item in src:
+            if len(dest) >= target_count:
+                break
+            k = key(item)
+            if k not in seen_keys:
+                dest.append(item)
+                seen_keys.add(k)
+                added += 1
+
+        if added >= 1:
+            self._log.info(f'Extending: {added} more.')
 
     def _get_travel_segment_options(self) -> TravelSegmentOptions:
         prompt = """
@@ -195,7 +206,7 @@ class ScheduleBuilder:
         Convert all currencies to EUR.
         """
 
-        self._logger.info("🚌🚇 Searching for public transport fares")
+        self._log.info("🚌🚇 Searching for public transport fares")
 
         response = self._llm.with_structured_output(schema=TravelSegmentOptions).invoke(input=prompt)
 

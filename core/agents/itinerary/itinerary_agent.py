@@ -143,9 +143,7 @@ class ItineraryBuilderAgent(BaseAgent):
         trip_request = state.trip_request
 
         state.final_itinerary = TripItinerary(
-            destination=trip_request.destination,
-            start_date=trip_request.start_date,
-            end_date=trip_request.end_date,
+            initial_request=state.trip_request,
             total_days=(trip_request.end_date - trip_request.start_date).days + 1,
             daily_itineraries=state.daily_itineraries,
             accommodation=require(state.accommodation),

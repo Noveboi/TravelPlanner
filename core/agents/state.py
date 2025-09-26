@@ -4,9 +4,9 @@ from langchain_core.messages import HumanMessage
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel, Field
 
-from core.agents.utils import invoke_react_agent
 from core.models.geography import Coordinates
 from core.models.trip import TripRequest
+from core.utils import invoke_react_agent
 
 
 class SearchInfo(BaseModel):

@@ -1,20 +1,19 @@
 ﻿import operator
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage
 from langgraph.graph import StateGraph
-from langgraph.prebuilt import create_react_agent
 from pydantic import BaseModel, Field
 
 from core.agents.base import BaseAgent
 from core.agents.null_checks import require
-from core.agents.places.utils import convert_fsq_to_place
 from core.agents.state import SearchInfo
 from core.models.places import Place, PlaceCategory, AccommodationReport
 from core.models.trip import TripRequest
-from core.tools.foursquare import FoursquareApiClient, PlaceSearchRequest
+from core.tools.foursquare import FoursquareApiClient, PlaceSearchRequest, convert_fsq_to_place
 from core.tools.tools import get_available_tools
+from core.utils import invoke_react_agent
 
 
 class AccommodationState(BaseModel):
@@ -39,7 +38,7 @@ class AccommodationScoutAgent(BaseAgent):
         super().__init__(name='accommodation_scout')
         self._llm = llm.bind_tools(get_available_tools())
         self._client = client
-        self._workflow = self._create_workflow().compile()
+        self.workflow = self._create_workflow().compile()
 
     def _create_workflow(self) -> StateGraph[AccommodationState, Any, AccommodationState, AccommodationState]:
         workflow = StateGraph(
@@ -55,12 +54,15 @@ class AccommodationScoutAgent(BaseAgent):
         workflow.set_entry_point('find_accommodations')
         workflow.add_conditional_edges(
             'find_accommodations',
-            self._should_expand_search,
+            self._has_no_accommodations,
             {
-                True: 'expand_search',
-                False: 'generate_accommodation_report'
+                'has_no_accommodations': 'expand_search',
+                'found_accommodations': 'generate_accommodation_report'
             }
         )
+        
+        workflow.add_edge('expand_search', 'find_accommodations')
+        
         workflow.set_finish_point('generate_accommodation_report')
 
         return workflow
@@ -73,7 +75,7 @@ class AccommodationScoutAgent(BaseAgent):
             local_info=info
         )
 
-        final_state = self._workflow.invoke(input=initial_state)
+        final_state = self.workflow.invoke(input=initial_state)
         report = final_state['report']
 
         assert isinstance(report, AccommodationReport)
@@ -81,12 +83,6 @@ class AccommodationScoutAgent(BaseAgent):
         return report
 
     def _get_finalized_accommodation_report(self, state: AccommodationState) -> dict[str, AccommodationReport]:
-        agent = create_react_agent(
-            model=self._llm,
-            tools=get_available_tools(),
-            response_format=AccommodationReport
-        )
-
         self._log.info('🏨 Generating final accommodation report...')
 
         prompt = f"""
@@ -102,23 +98,13 @@ class AccommodationScoutAgent(BaseAgent):
                 Limit your recommendations to a maximum of 10.
                 """
 
-        # noinspection PyTypeChecker
-        response = agent.invoke(input={'messages': [HumanMessage(content=prompt)]})
-        structured_response = response['structured_response']
-
-        if isinstance(structured_response, list):
-            return {'report': AccommodationReport(report=structured_response)}
-        elif isinstance(structured_response, AccommodationReport):
-            return {'report': structured_response}
-
-        raise ValueError(f'Invalid agent output for AccommodationReport: {type(structured_response)}')
+        return {'report': invoke_react_agent(self._llm, [HumanMessage(prompt)], schema=AccommodationReport)}
 
     @staticmethod
-    def _should_expand_search(state: AccommodationState) -> bool:
-        return not state.accommodations
+    def _has_no_accommodations(state: AccommodationState) -> Literal['has_no_accommodations', 'found_accommodations']:
+        return 'has_no_accommodations' if not state.accommodations else 'found_accommodations'
 
     def _search_for_accommodations(self, state: AccommodationState) -> dict[str, list[Place]]:
-
         place_search_request = PlaceSearchRequest(
             center=require(state.local_info).center,
             radius=require(state.local_info).radius,
@@ -126,7 +112,7 @@ class AccommodationScoutAgent(BaseAgent):
             limit=35
         )
 
-        place_search_response = require(self._client.invoke(place_search_request))
+        place_search_response = require(self._client.search(place_search_request))
 
         accommodations = [convert_fsq_to_place(fsq) for fsq in place_search_response.results]
 

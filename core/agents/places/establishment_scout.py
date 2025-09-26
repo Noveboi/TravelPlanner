@@ -5,17 +5,18 @@ from typing import Annotated, Any, Literal, List, Dict
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage
 from langgraph.graph import StateGraph
-from langgraph.prebuilt import create_react_agent
 from pydantic import BaseModel, Field
 
 from core.agents.base import BaseAgent
 from core.agents.null_checks import require
 from core.agents.places.accommodation_scout import convert_fsq_to_place
 from core.agents.state import SearchInfo
+from core.models.geography import Coordinates
 from core.models.places import EstablishmentReport, Place, Establishment, Priority
 from core.models.trip import TripRequest
 from core.tools.foursquare import FoursquareApiClient, PlaceSearchRequest
 from core.tools.tools import get_available_tools
+from core.utils import invoke_react_agent
 
 
 class MissingEstablishmentDetails(BaseModel):
@@ -42,6 +43,9 @@ class MissingEstablishmentDetails(BaseModel):
             {"Weekends", "08:00-20:00"},
             {"Tuesday-Saturday", "08:00-20:00"},
         ],
+    )
+    coordinates: Coordinates = Field(
+        description='Required if the given establishment did not have coordinates before.'
     )
 
 
@@ -95,43 +99,25 @@ class EstablishmentScoutAgent(BaseAgent):
         workflow.add_node('generate_report', self._generate_report)
 
         workflow.set_entry_point('search_establishments')
-
         workflow.add_edge('expand_search_info', 'search_establishments')
 
         workflow.add_conditional_edges(
             'search_establishments',
             self._needs_to_search_for_more_establishments,
             {
-                'yes': 'expand_search_info',
-                'no': 'fill_out_missing_establishment_info'
+                'needs_more_establishments': 'expand_search_info',
+                'ok': 'fill_out_missing_establishment_info'
             }
         )
 
-        workflow.add_conditional_edges(
-            'fill_out_missing_establishment_info',
-            self._has_more_establishments_to_fill_out,
-            {
-                'yes': 'fill_out_missing_establishment_info',
-                'no': 'generate_report'
-            }
-        )
+        workflow.add_edge('fill_out_missing_establishment_info', 'generate_report')
 
         workflow.set_finish_point('generate_report')
 
         return workflow
 
-    @staticmethod
-    def _has_more_establishments_to_fill_out(state: EstablishmentState) -> Literal['yes', 'no']:
-        return 'yes' if state.index < len(state.establishments) else 'no'
-
     def _fill_out_missing_establishment_info(self, state: EstablishmentState) -> dict[
         str, list[MissingEstablishmentDetails]]:
-        agent = create_react_agent(
-            model=self._llm,
-            tools=get_available_tools(),
-            response_format=EstablishmentDetails
-        )
-
         self._log.info('🍽️ Gathering additional information for establishments')
 
         prompt_context = {
@@ -145,6 +131,7 @@ class EstablishmentScoutAgent(BaseAgent):
                 {prompt_context}
                 
                 Your task is to gather the missing information for each establishment:
+                - The coordinates of the establishment (only if they don't exist)
                 - The average price of the establishment (per person)
                 - The type of the establishment
                 - Opening schedule/hours
@@ -154,27 +141,20 @@ class EstablishmentScoutAgent(BaseAgent):
                 Do not include/exclude any establishment from the given list
                 """
 
-        # noinspection PyTypeChecker
-        response = agent.invoke(input={'messages': [HumanMessage(content=prompt)]})
-        structured_response = response['structured_response']
+        agent_response = invoke_react_agent(self._llm, [HumanMessage(prompt)], schema=EstablishmentDetails)
 
-        if isinstance(structured_response, list) and isinstance(structured_response[0], MissingEstablishmentDetails):
-            return {'extra_establishment_details': structured_response}
-        elif isinstance(structured_response, EstablishmentDetails):
-            return {'extra_establishment_details': structured_response.establishments}
+        return {'extra_establishment_details': agent_response.establishments}
 
-        raise ValueError(f'Invalid agent output for EstablishmentReport: {type(structured_response)}')
-
-    def _needs_to_search_for_more_establishments(self, state: EstablishmentState) -> Literal['yes', 'no']:
+    def _needs_to_search_for_more_establishments(self, state: EstablishmentState) -> Literal['needs_more_establishments', 'ok']:
         state.establishments_to_retrieve -= len(state.establishments)
 
         est_left = state.establishments_to_retrieve
 
         if est_left > 0:
             self._log.info(f'🍴 Need to search for {est_left} more establishments')
-            return 'yes'
+            return 'needs_more_establishments'
 
-        return 'no'
+        return 'ok'
 
     def _expand_search(self, state: EstablishmentState) -> dict[str, SearchInfo]:
         self._log.info('Expanding search')
@@ -190,9 +170,9 @@ class EstablishmentScoutAgent(BaseAgent):
             query='dining'
         )
 
-        response = require(self._client.invoke(search_request))
+        agent_response = require(self._client.search(search_request))
 
-        establishments = [convert_fsq_to_place(fsq) for fsq in response.results]
+        establishments = [convert_fsq_to_place(fsq) for fsq in agent_response.results]
 
         self._log.info(f'🍴 Got {len(establishments)} establishments')
 
@@ -205,6 +185,10 @@ class EstablishmentScoutAgent(BaseAgent):
 
         for details in state.extra_establishment_details:
             target = next(x for x in state.establishments if x.id == details.establishment_id)
+            
+            if not target.coordinates or not details.coordinates:
+                self._log.error(f'{target.name} is missing coordinates ({target.coordinates}, {details.coordinates})')
+                
             establishment_dict = target.model_dump()
             details_dict = details.model_dump()
 
@@ -223,7 +207,10 @@ class EstablishmentScoutAgent(BaseAgent):
         )
 
         final_state = self.workflow.invoke(input=initial_state)
-        report = final_state['report']
+
+        report = final_state.get('report')
+        if not report:
+            raise ValueError(f"'report' not in final_state: {final_state}")
 
         assert isinstance(report, EstablishmentReport)
 

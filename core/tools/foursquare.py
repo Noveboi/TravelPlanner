@@ -3,33 +3,23 @@ import os
 from typing import Optional, List, Any
 
 import requests
+from langchain_core.tools import BaseTool, ArgsSchema
 from pydantic import BaseModel, Field
 
 from core.models.geography import Coordinates
-from core.models.places import PlaceCategory
+from core.models.places import PlaceCategory, Place, Priority, BookingType
 
 foursquare_category_map: dict[PlaceCategory, str] = {
     PlaceCategory.HOTEL: '4bf58dd8d48988d1fa931735'
 }
 
 
-class FoursquareDayHours(BaseModel):
-    close: str = Field()
-    day: int = Field()
-    open: str = Field()
-
-
-class FoursquareHours(BaseModel):
-    display: str = Field()
-    regular: list[FoursquareDayHours] = Field()
-
-
 class FoursquarePlace(BaseModel):
     fsq_place_id: str = Field()
-    latitude: float = Field()
-    longitude: float = Field()
     name: str = Field()
-    website: Optional[str] = Field(default=None)
+    latitude: float | None = Field(default=None)
+    longitude: float | None = Field(default=None)
+    website: str | None = Field(default=None)
 
 
 class FoursquarePlaceSearchRequest:
@@ -61,7 +51,30 @@ class PlaceSearchRequest(BaseModel):
         le=50,
         default=35
     )
-    query: str | None = Field(default=None)
+    query: str | None = Field(
+        description='A string to be matched against all content for this place, including but not limited to venue name, category, telephone number, taste, and tips.',
+        default=None
+    )
+
+
+class PlaceSearchToolInput(BaseModel):
+    request: PlaceSearchRequest = Field(description='The request object used to query the Foursquare Places Search API')
+
+
+class PlaceSearchTool(BaseTool):
+    name: str = 'place_search'
+    description: str = 'Search for places using the Foursquare Places Search API.'
+    args_schema: Optional[ArgsSchema] = PlaceSearchToolInput
+
+    def __init__(self, **kwargs: Any):
+        super().__init__(**kwargs)
+        self._client = FoursquareApiClient()
+        self._log = logging.getLogger('fsq_tool')
+
+    def _run(self, request: PlaceSearchRequest) -> List[Place]:
+        self._log.info('Invoking FSQ tool')
+        response = self._client.search(request)
+        return [convert_fsq_to_place(fsq_place) for fsq_place in response.results]
 
 
 class FoursquareApiClient:
@@ -70,14 +83,14 @@ class FoursquareApiClient:
     """
 
     def __init__(self):
-        self._logger = logging.getLogger(name='fsq')
+        self._log = logging.getLogger(name='fsq')
         self._base_url = 'https://places-api.foursquare.com/places'
         self._bearer_token = os.environ.get('FOURSQUARE_API_KEY')
 
         if self._bearer_token is None:
-            self._logger.warning('Foursquare API bearer token not found. Requests will not be sent.')
+            self._log.warning('Foursquare API bearer token not found. Requests will not be sent.')
 
-    def invoke(self, request: PlaceSearchRequest) -> FoursquarePlaceSearchResponse | None:
+    def search(self, request: PlaceSearchRequest) -> FoursquarePlaceSearchResponse | None:
         """
         Calls the Foursquare "Places API" to retrieve up-to-date and relevant place information based on the given request. 
         
@@ -86,8 +99,6 @@ class FoursquareApiClient:
         """
         if self._bearer_token is None:
             return None
-
-        self._logger.info('Sending Foursquare request...')
 
         fsq = self._adapt_request(request)
 
@@ -102,7 +113,7 @@ class FoursquareApiClient:
             'radius': fsq.radius,
             'exclude_all_chains': True,
             'limit': request.limit,
-            # 'fields': 'fsq_place_id,latitude,longitude,name,website,description,hours'
+            'fields': 'fsq_place_id,name,latitude,longitude,website'
         }
 
         if fsq.fsq_category_ids:
@@ -111,9 +122,14 @@ class FoursquareApiClient:
         if request.query:
             params['query'] = request.query
 
-        response = requests.get(self._base_url + '/search', params=params, headers=headers)
+        url = f'{self._base_url}/search'
 
-        self._logger.info('Received response from Foursquare')
+        self._log.info(f'Sending Foursquare request to {url}')
+        self._log.info(f'Query params: {params}')
+
+        response = requests.get(url, params=params, headers=headers)
+
+        self._log.info('Received response from Foursquare')
 
         response.raise_for_status()
 
@@ -126,3 +142,19 @@ class FoursquareApiClient:
             radius=request.radius,
             fsq_category_ids=','.join([foursquare_category_map[cat] for cat in request.place_categories])
         )
+
+
+def convert_fsq_to_place(fsq: FoursquarePlace):
+    coordinates: Coordinates | None = Coordinates(fsq.latitude,
+                                                  fsq.longitude) if fsq.latitude and fsq.longitude else None
+
+    return Place(
+        name=fsq.name,
+        coordinates=coordinates,
+        priority=Priority.ESSENTIAL,
+        reason_to_go='',
+        website=fsq.website,
+        booking_type=BookingType.REQUIRED,
+        typical_hours_of_stay=0,
+        weather_dependent=False
+    )

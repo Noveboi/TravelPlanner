@@ -3,25 +3,24 @@ import uuid
 from typing import Annotated, Any, Literal, List
 
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph
-from langgraph.prebuilt import create_react_agent
 from pydantic import BaseModel, Field
 
 from core.models.places import LandmarksReport, Place, Priority, Landmark
 from core.models.trip import TripRequest
-from .utils import convert_fsq_to_place, to_json
+from core.utils import invoke_react_agent
+from .places_utils import to_json
 from ..base import BaseAgent
 from ..null_checks import require
 from ..state import SearchInfo
-from ...tools.foursquare import FoursquareApiClient, PlaceSearchRequest, FoursquarePlace
-from ...tools.tools import get_available_tools
+from ...tools.foursquare import FoursquareApiClient, PlaceSearchRequest, FoursquarePlace, convert_fsq_to_place
 
 
 class ImprovedLandmark(BaseModel):
     place_id: uuid.UUID = Field(description="The ID referencing the landmark")
     priority: Priority = Field(description='The importance of this landmark relevant to the request of the user')
-    reason_to_go: str = Field(description='A brief reason why the user should go here')
-    opening_schedule: dict[str, str] = Field(description='The opening hours schedule')
+    reason_to_go: str = Field(description='A brief reason why the user should go here. Keep it short')
 
 
 class ImprovedLandmarks(BaseModel):
@@ -71,8 +70,8 @@ class LandmarkScoutAgent(BaseAgent):
             'search_landmarks',
             self._needs_more_landmarks,
             {
-                'yes': 'expand_search_info',
-                'no': 'polish_results'
+                'search_more_landmarks': 'expand_search_info',
+                'ok': 'polish_results'
             }
         )
 
@@ -103,24 +102,13 @@ class LandmarkScoutAgent(BaseAgent):
             }
         }
 
-        agent = create_react_agent(
-            model=self._llm,
-            tools=get_available_tools(),
-            response_format=ImprovedLandmarks,
-            prompt=system
-        )
+        response = invoke_react_agent(
+            self._llm,
+            messages=[HumanMessage(to_json(user))],
+            schema=ImprovedLandmarks,
+            system_message=SystemMessage(system))
 
-        # noinspection PyTypeChecker
-        response = agent.invoke({"messages": [{"role": "user", "content": to_json(user)}]})['structured_response']
-
-        if isinstance(response, list):
-            state.improved_landmarks = ImprovedLandmarks(list=response)
-        elif isinstance(response, ImprovedLandmarks):
-            state.improved_landmarks = response
-        elif isinstance(response, dict):
-            state.improved_landmarks = response['list']
-        else:
-            raise ValueError(f'Incorrect agent output: {type(response)}')
+        state.improved_landmarks = response
 
         return state
 
@@ -138,8 +126,8 @@ class LandmarkScoutAgent(BaseAgent):
         return state
 
     @staticmethod
-    def _needs_more_landmarks(state: LandmarksState) -> Literal['yes', 'no']:
-        return 'yes' if len(state.landmarks) < 50 else 'no'
+    def _needs_more_landmarks(state: LandmarksState) -> Literal['search_more_landmarks', 'ok']:
+        return 'search_more_landmarks' if len(state.landmarks) < 50 else 'ok'
 
     def _search_landmarks(self, state: LandmarksState) -> dict[str, list[Place]]:
         self._log.info('🔎 Searching for landmarks...')
@@ -151,7 +139,7 @@ class LandmarkScoutAgent(BaseAgent):
             query='landmarks'
         )
 
-        fsq_places: list[FoursquarePlace] = require(self._client.invoke(req)).results
+        fsq_places: list[FoursquarePlace] = require(self._client.search(req)).results
         places: list[Place] = [convert_fsq_to_place(p) for p in fsq_places]
 
         return {'landmarks': places}

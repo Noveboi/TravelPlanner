@@ -1,12 +1,11 @@
 ﻿import uuid
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any, Type, cast, TypeVar
 
 from pydantic import BaseModel, Field
 
-from .geography import Coordinates
-from ..agents.utils import cast_items
+from core.models.geography import Coordinates
 
 
 class PlaceCategory(str, Enum):
@@ -37,7 +36,7 @@ class Place(BaseModel):
     name: str = Field(
         description="The commonly used name for the place"
     )
-    coordinates: Coordinates = Field(
+    coordinates: Coordinates | None = Field(
         description="The latitude and longitude coordinates of the place"
     )
     priority: Priority = Field(
@@ -142,3 +141,11 @@ class DestinationReport(BaseModel):
                 cast_items(self.events.report, Place) +
                 cast_items(self.accommodations.report, Place)
         )
+
+
+T = TypeVar('T')
+
+
+def cast_items(items: List[Any], t: Type[T]) -> List[T]:
+    # Only keep instances of t, then cast to satisfy the type checker
+    return [cast(T, x) for x in items if isinstance(x, t)]

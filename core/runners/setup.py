@@ -2,13 +2,31 @@
 import os
 from datetime import date
 
+import colorlog
+import httpx
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 
 from core.models.trip import TripType, TripRequest
 
+logging.basicConfig(
+    level=logging.INFO,
+    handlers=[colorlog.StreamHandler()],
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+log_format = (
+    "%(asctime)s "
+    "[%(log_color)s%(levelname)s%(reset)s] "
+    "%(log_color)s%(name)s%(reset)s: "
+    "%(message)s"
+)
+
+# Update the root logger's handler with a ColoredFormatter
+formatter = colorlog.ColoredFormatter(log_format)
+logging.getLogger().handlers[0].setFormatter(formatter)
+
 log = logging.getLogger('main')
-logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
 
@@ -16,6 +34,8 @@ log.info('Starting')
 llm = ChatOpenAI(
     model='x-ai/grok-4-fast:free',
     base_url="https://openrouter.ai/api/v1",
+    timeout=httpx.Timeout(connect=20, read=180, write=180, pool=30),
+    max_retries=2
 )
 
 example_request = TripRequest(

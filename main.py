@@ -1,8 +1,8 @@
 ﻿from time import sleep
 
-import core.agents.workflow as workflow
 import core.runners.setup as base
 import user_prompts as prompts
+from core.agents.workflow import run_agent_workflow
 from core.runners.setup import example_request
 
 if __name__ == '__main__':
@@ -14,7 +14,7 @@ if __name__ == '__main__':
 
     print(f'🤖 Creating your itinerary for {request.destination}, this will take a while...')
 
-    itinerary = workflow.run_agent_workflow(request, base.llm, base.log)
+    itinerary = run_agent_workflow(request, base.llm, base.log)
 
     sleep(0.3)
 

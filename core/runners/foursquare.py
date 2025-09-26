@@ -10,7 +10,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
 
     api = FoursquareApiClient()
-    resp = api.invoke(PlaceSearchRequest(center=Coordinates(latitude=38.1, longitude=23.9)))
+    resp = api.search(PlaceSearchRequest(center=Coordinates(latitude=38.1, longitude=23.9)))
 
     if resp is not None:
         print(resp.model_dump_json(indent=2))

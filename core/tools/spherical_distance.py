@@ -14,7 +14,7 @@ class DistanceToolInput(BaseModel):
 
 
 class DistanceTool(BaseTool):
-    name: str = "Distance Calculator"
+    name: str = "distance_calculator"
     description: str = "Accurately calculate the distance between two places using their coordinates."
     args_schema: Optional[ArgsSchema] = DistanceToolInput
 
@@ -24,8 +24,6 @@ class DistanceTool(BaseTool):
 
     def _run(self, x1: Coordinates, x2: Coordinates) -> float:
         """Use the tool"""
-        distance = haversine_distance(x1, x2)
-        self._log.info(f'🔨🌍 Invoked. Got distance {distance}')
         return haversine_distance(x1, x2)
 
 

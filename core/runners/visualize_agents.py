@@ -1,18 +1,26 @@
-﻿from IPython.display import Image, display
+﻿from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import create_react_agent
-from pydantic import BaseModel, Field
 
-import core.runners.setup as x
+import setup as base
+from core.agents.itinerary.itinerary_agent import ItineraryBuilderAgent
+from core.agents.places.accommodation_scout import AccommodationScoutAgent
+from core.agents.places.establishment_scout import EstablishmentScoutAgent
+from core.agents.places.landmark_scout import LandmarkScoutAgent
+from core.models.places import AccommodationReport
+from core.tools.foursquare import FoursquareApiClient
 from core.tools.tools import get_available_tools
+from core.utils import invoke_react_agent
 
 
-class Test(BaseModel):
-    nombre: int = Field()
+# noinspection PyUnresolvedReferences
+def display_agent(agent: object) -> None:
+    if not hasattr(agent, 'workflow') and not isinstance(agent.workflow, CompiledStateGraph):
+        raise ValueError('Agent must have "workflow" field that is a compiled state graph')
 
+    with open(f'{agent.__class__.__name__}.png', 'wb') as f:
+        f.write(agent.workflow.get_graph().draw_mermaid_png())
 
-agent_plain = create_react_agent(x.llm, tools=[])
-agent_with_tools = create_react_agent(x.llm, tools=get_available_tools())
-agent_with_output = create_react_agent(x.llm, response_format=Test, tools=[])
+ag = AccommodationScoutAgent(base.llm, FoursquareApiClient())
 
 if __name__ == '__main__':
-    display(Image(agent_plain.get_graph().draw_mermaid_png(max_retries=5)))
+    pass

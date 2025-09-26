@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from core.models.geography import Coordinates
 from core.models.places import Accommodation
+from core.models.trip import TripRequest
 
 
 class ActivityType(str, Enum):
@@ -28,7 +29,7 @@ class ItineraryActivity(BaseModel):
     Represents a single activity in the itinerary
     """
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
-    place_id: Optional[uuid.UUID] = Field(
+    place_id: uuid.UUID = Field(
         description="Reference to the place from `DestinationReport`",
         default=None
     )
@@ -41,7 +42,7 @@ class ItineraryActivity(BaseModel):
         description="Estimated total cost in EUR",
         default=0.0
     )
-    coordinates: Coordinates = Field(
+    coordinates: Coordinates | None = Field(
         description="Location coordinates"
     )
     booking_required: bool = Field(
@@ -103,9 +104,7 @@ class TripItinerary(BaseModel):
     """
     Complete itinerary for the entire trip
     """
-    destination: str = Field(description="Trip destination")
-    start_date: date = Field(description="Trip start date")
-    end_date: date = Field(description="Trip end date")
+    initial_request: TripRequest = Field()
     total_days: int = Field(description="Total number of days")
     daily_itineraries: List[DayItinerary] = Field(description="Day-by-day breakdown")
     accommodation: Accommodation = Field()
